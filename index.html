@@ -29,6 +29,11 @@
     --c-cine:#c78ee8;
     --c-deportes:#ffb84d;
     --c-arte:#5f9df7;
+    --c-musica:#ff8fab;
+    --c-literatura:#b08968;
+    --c-tecnologia:#64dfdf;
+    --c-gastronomia:#e07a5f;
+    --c-actualidad:#849cc4;
   }
   *{box-sizing:border-box;}
   html,body{
@@ -366,6 +371,11 @@
     { key:'cine', name:'Cine y Series', color:'var(--c-cine)', icon:'🎬' },
     { key:'deportes', name:'Deportes', color:'var(--c-deportes)', icon:'⚽' },
     { key:'arte', name:'Arte y Cultura', color:'var(--c-arte)', icon:'🎨' },
+    { key:'musica', name:'Música', color:'var(--c-musica)', icon:'🎵' },
+    { key:'literatura', name:'Literatura', color:'var(--c-literatura)', icon:'📚' },
+    { key:'tecnologia', name:'Tecnología', color:'var(--c-tecnologia)', icon:'💻' },
+    { key:'gastronomia', name:'Gastronomía', color:'var(--c-gastronomia)', icon:'🍽️' },
+    { key:'actualidad', name:'Actualidad', color:'var(--c-actualidad)', icon:'📰' },
   ];
 
   // questions[topicKey][level] = array de {q, options:[4], correct:index}
@@ -531,6 +541,141 @@
         {q:"¿Qué escultura griega sin brazos, hallada en Milos, es una obra famosa del Louvre?", options:["Venus de Milo","Nike de Samotracia","Laocoonte","El Discóbolo"], correct:0},
         {q:"¿Qué artista italiano pintó el techo de la Capilla Sixtina?", options:["Rafael","Leonardo da Vinci","Miguel Ángel","Botticelli"], correct:2},
       ],
+    },
+    musica: {
+      1:[
+        {q:"¿Cuántas cuerdas tiene una guitarra clásica estándar?", options:["4","5","6","7"], correct:2},
+        {q:"¿Qué banda británica de los años 60 compuso 'Hey Jude'?", options:["The Rolling Stones","The Beatles","The Who","Pink Floyd"], correct:1},
+        {q:"¿Cuántas líneas tiene un pentagrama musical?", options:["4","5","6","7"], correct:1},
+      ],
+      2:[
+        {q:"¿Qué cantante colombiana es conocida por 'Waka Waka'?", options:["Shakira","Karol G","J Balvin","Maluma"], correct:0},
+        {q:"¿Qué género musical se originó en Jamaica en los años 60?", options:["Reggae","Salsa","Blues","Flamenco"], correct:0},
+        {q:"¿Qué instrumento de viento usa una boquilla de caña doble?", options:["Flauta","Oboe","Trompeta","Clarinete"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué compositor austríaco escribió 'Las bodas de Fígaro'?", options:["Beethoven","Mozart","Haydn","Schubert"], correct:1},
+        {q:"¿Qué artista puertorriqueño es conocido como 'El Conejo Malo'?", options:["Daddy Yankee","Bad Bunny","Ozuna","Anuel AA"], correct:1},
+        {q:"¿Qué banda de rock formaron Freddie Mercury, Brian May, Roger Taylor y John Deacon?", options:["Led Zeppelin","Queen","The Who","Deep Purple"], correct:1},
+      ],
+      4:[
+        {q:"¿Qué cantante estadounidense es conocida como 'La Reina del Pop'?", options:["Madonna","Cher","Whitney Houston","Mariah Carey"], correct:0},
+        {q:"¿Qué escala musical de 7 notas es la base de la música occidental?", options:["Pentatónica","Diatónica","Cromática","Dodecafónica"], correct:1},
+        {q:"¿En qué década surgió el hip hop en Estados Unidos?", options:["1960s","1970s","1980s","1990s"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué compositor ruso escribió 'El lago de los cisnes'?", options:["Stravinsky","Tchaikovsky","Rachmaninoff","Prokofiev"], correct:1},
+        {q:"¿Qué término musical italiano indica que una pieza debe tocarse muy despacio?", options:["Allegro","Adagio","Presto","Andante"], correct:1},
+        {q:"¿Qué compositor barroco alemán compuso las 'Variaciones Goldberg'?", options:["Handel","Vivaldi","Bach","Telemann"], correct:2},
+      ],
+    },
+    literatura: {
+      1:[
+        {q:"¿Quién escribió 'Don Quijote de la Mancha'?", options:["Lope de Vega","Miguel de Cervantes","Calderón de la Barca","Garcilaso"], correct:1},
+        {q:"¿Qué famoso mago creó J.K. Rowling?", options:["Harry Potter","Percy Jackson","Frodo","Aragorn"], correct:0},
+        {q:"¿Cuántos libros tiene tradicionalmente una trilogía?", options:["2","3","4","5"], correct:1},
+      ],
+      2:[
+        {q:"¿Qué escritor colombiano escribió 'Cien años de soledad'?", options:["Mario Vargas Llosa","Gabriel García Márquez","Julio Cortázar","Pablo Neruda"], correct:1},
+        {q:"¿Qué género literario usa versos y métrica?", options:["Narrativa","Ensayo","Poesía","Drama"], correct:2},
+        {q:"¿Quién escribió 'Romeo y Julieta'?", options:["Charles Dickens","William Shakespeare","Oscar Wilde","Jane Austen"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué escritora chilena escribió 'La casa de los espíritus'?", options:["Isabel Allende","Gabriela Mistral","Marcela Serrano","Alejandra Costamagna"], correct:0},
+        {q:"¿Qué movimiento literario latinoamericano mezcla lo fantástico con lo cotidiano?", options:["Realismo Sucio","Realismo Mágico","Costumbrismo","Modernismo"], correct:1},
+        {q:"¿Qué poeta chileno ganó el Premio Nobel de Literatura en 1971?", options:["Pablo Neruda","Nicanor Parra","Gabriela Mistral","Vicente Huidobro"], correct:0},
+      ],
+      4:[
+        {q:"¿Qué novela de Dostoyevski narra el crimen de Raskólnikov?", options:["Los hermanos Karamázov","Crimen y castigo","El idiota","Guerra y paz"], correct:1},
+        {q:"¿Quién escribió '1984' y 'Rebelión en la granja'?", options:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"], correct:1},
+        {q:"¿Qué autor mexicano escribió 'Pedro Páramo'?", options:["Octavio Paz","Juan Rulfo","Carlos Fuentes","Juan José Arreola"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué escritor argentino es conocido por el concepto de 'La Biblioteca de Babel'?", options:["Julio Cortázar","Jorge Luis Borges","Adolfo Bioy Casares","Ernesto Sabato"], correct:1},
+        {q:"¿Qué novela de James Joyce, ambientada en un solo día en Dublín, es célebre por su dificultad?", options:["Retrato del artista adolescente","Ulises","Finnegans Wake","Dublineses"], correct:1},
+        {q:"¿Qué escritora inglesa escribió 'Mrs Dalloway' y 'Al faro' con técnica de flujo de conciencia?", options:["Jane Austen","Virginia Woolf","Emily Brontë","Agatha Christie"], correct:1},
+      ],
+    },
+    tecnologia: {
+      1:[
+        {q:"¿Qué empresa creó el iPhone?", options:["Samsung","Apple","Google","Microsoft"], correct:1},
+        {q:"¿Qué significa 'www' en una dirección de internet?", options:["World Wide Web","World Web Wide","Wide World Web","Web World Wide"], correct:0},
+        {q:"¿Qué dispositivo se usa para mover el cursor en una computadora de escritorio?", options:["Teclado","Mouse","Monitor","Parlante"], correct:1},
+      ],
+      2:[
+        {q:"¿Qué red social fue fundada por Mark Zuckerberg?", options:["Twitter","Facebook","Instagram","LinkedIn"], correct:1},
+        {q:"¿Qué significa la sigla 'IA'?", options:["Internet Avanzado","Inteligencia Artificial","Informática Aplicada","Interfaz Automática"], correct:1},
+        {q:"¿Qué compañía desarrolla el sistema operativo Android?", options:["Apple","Google","Microsoft","Amazon"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué lenguaje se usa junto con HTML y CSS para el 'front-end' de una web?", options:["Python","JavaScript","C++","Swift"], correct:1},
+        {q:"¿Qué empresa fabrica los procesadores Ryzen?", options:["Intel","AMD","Nvidia","Qualcomm"], correct:1},
+        {q:"¿Qué significa la sigla 'USB'?", options:["Universal System Bus","Universal Serial Bus","United Serial Board","Universal Storage Bus"], correct:1},
+      ],
+      4:[
+        {q:"¿Quién cofundó Microsoft junto a Bill Gates?", options:["Steve Jobs","Paul Allen","Larry Page","Jeff Bezos"], correct:1},
+        {q:"¿Qué tecnología permite conectarse a internet sin cables?", options:["Bluetooth","Wi-Fi","USB","Ethernet"], correct:1},
+        {q:"¿Qué empresa creó el modelo de lenguaje ChatGPT?", options:["Google","OpenAI","Meta","Anthropic"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué científico británico es considerado el padre de la computación moderna por descifrar el código Enigma?", options:["Alan Turing","Tim Berners-Lee","John von Neumann","Claude Shannon"], correct:0},
+        {q:"¿Qué protocolo de internet es la base para transferir páginas web?", options:["FTP","HTTP","SMTP","SSH"], correct:1},
+        {q:"¿Quién es considerado el creador del lenguaje de programación Python?", options:["Guido van Rossum","Dennis Ritchie","James Gosling","Bjarne Stroustrup"], correct:0},
+      ],
+    },
+    gastronomia: {
+      1:[
+        {q:"¿De qué país es originaria la pizza margarita?", options:["España","Italia","Francia","Grecia"], correct:1},
+        {q:"¿Qué fruta se usa para hacer el guacamole?", options:["Mango","Aguacate","Papaya","Piña"], correct:1},
+        {q:"¿Qué bebida se obtiene de moler granos tostados?", options:["Té","Café","Chocolate","Mate"], correct:1},
+      ],
+      2:[
+        {q:"¿Qué país es famoso por el sushi?", options:["China","Corea","Japón","Tailandia"], correct:2},
+        {q:"¿Qué ingrediente principal lleva el ceviche peruano?", options:["Carne roja","Pescado o marisco crudo marinado","Pollo","Cerdo"], correct:1},
+        {q:"¿Qué tipo de pasta italiana tiene forma de tubos cortos?", options:["Spaghetti","Penne","Linguine","Fettuccine"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué país es el mayor productor mundial de vino?", options:["Francia","Italia","España","Estados Unidos"], correct:1},
+        {q:"¿Qué plato mexicano es maíz relleno envuelto en hoja y cocido al vapor?", options:["Taco","Tamal","Quesadilla","Enchilada"], correct:1},
+        {q:"¿Qué especia, de las más caras del mundo, se obtiene del estigma de una flor?", options:["Canela","Azafrán","Pimienta","Cúrcuma"], correct:1},
+      ],
+      4:[
+        {q:"¿Qué técnica culinaria francesa consiste en cocinar lentamente en su propia grasa?", options:["Confitado","Flambeado","Gratinado","Salteado"], correct:0},
+        {q:"¿Qué queso italiano se usa tradicionalmente para la pizza napolitana?", options:["Parmesano","Mozzarella","Gorgonzola","Provolone"], correct:1},
+        {q:"¿Qué país es reconocido por inventar la técnica de fermentación del kimchi?", options:["Japón","China","Corea","Vietnam"], correct:2},
+      ],
+      5:[
+        {q:"¿Qué chef español es conocido por la 'cocina molecular' en El Bulli?", options:["José Andrés","Ferran Adrià","Joan Roca","Martín Berasategui"], correct:1},
+        {q:"¿Qué región francesa da nombre al método tradicional de elaboración del champagne?", options:["Borgoña","Provenza","Champagne","Normandía"], correct:2},
+        {q:"¿Qué proceso transforma el mosto de uva en vino?", options:["Destilación","Fermentación alcohólica","Pasteurización","Maceración"], correct:1},
+      ],
+    },
+    actualidad: {
+      1:[
+        {q:"¿En qué continente está la sede de la ONU (Nueva York)?", options:["Europa","América","Asia","África"], correct:1},
+        {q:"¿Qué organización internacional reúne a la mayoría de los países para tratar temas de paz y seguridad?", options:["OTAN","ONU","OMC","UE"], correct:1},
+        {q:"¿Cuántos continentes se reconocen habitualmente en el mundo?", options:["5","6","7","8"], correct:2},
+      ],
+      2:[
+        {q:"¿Qué bloque de países europeos comparte una moneda llamada euro?", options:["Reino Unido","La zona euro de la Unión Europea","Rusia","Turquía"], correct:1},
+        {q:"¿Qué evento deportivo mundial se celebra cada 4 años y reúne a casi todos los países?", options:["Juegos Olímpicos","Copa América","Super Bowl","Champions League"], correct:0},
+        {q:"¿Qué organismo internacional se encarga de la salud pública global?", options:["UNESCO","OMS","UNICEF","FAO"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué acuerdo internacional de 2015 busca limitar el calentamiento global?", options:["Protocolo de Kioto","Acuerdo de París","Convenio de Basilea","Protocolo de Montreal"], correct:1},
+        {q:"¿Qué bloque sudamericano integran Argentina, Brasil, Paraguay y Uruguay como miembros plenos?", options:["Mercosur","Alianza del Pacífico","CAN","Unasur"], correct:0},
+        {q:"¿Qué red social de video corto, de origen chino, ha generado debates sobre regulación en varios países?", options:["Instagram","TikTok","Snapchat","YouTube"], correct:1},
+      ],
+      4:[
+        {q:"¿Qué crisis sanitaria mundial, declarada pandemia en 2020, cambió hábitos de trabajo y viaje?", options:["Ébola","COVID-19","Gripe Aviar","Zika"], correct:1},
+        {q:"¿Qué tipo de vehículo ha crecido rápido en ventas globales como alternativa a los motores de combustión?", options:["Vehículos eléctricos","Vehículos a vapor","Vehículos a carbón","Vehículos exclusivamente a gas comprimido"], correct:0},
+        {q:"¿Qué término describe a la IA capaz de generar texto, imágenes o código a partir de instrucciones?", options:["IA generativa","IA supervisada","Machine Learning clásico","Big Data"], correct:0},
+      ],
+      5:[
+        {q:"¿Qué país asiático superó a China como la nación más poblada del mundo según la ONU en 2023?", options:["Indonesia","India","Pakistán","Bangladés"], correct:1},
+        {q:"¿Qué término se usa para el objetivo de reducir a cero las emisiones netas de carbono para cierta fecha?", options:["Neutralidad de carbono","Huella hídrica","Economía circular","Biodiversidad"], correct:0},
+        {q:"¿Qué acuerdo comercial reemplazó al TLCAN entre México, Estados Unidos y Canadá en 2020?", options:["CPTPP","T-MEC / USMCA","Mercosur","RCEP"], correct:1},
+      ],
     }
   };
 
@@ -538,7 +683,7 @@
   let TOTAL_QUESTIONS = 0;
   const HARDCODED_PER_BUCKET = 3;
   const TARGET_TOTAL = 500;
-  const TARGET_PER_BUCKET = Math.ceil(TARGET_TOTAL / (6*5)); // 30 buckets -> 17 c/u
+  const TARGET_PER_BUCKET = Math.ceil(TARGET_TOTAL / (TOPICS.length*5)); // se ajusta solo según la cantidad de temas
 
   function recomputeTotal(){
     TOTAL_QUESTIONS = 0;
