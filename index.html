@@ -383,7 +383,7 @@
   </header>
 
   <div id="score">🏆 <span id="scoreVal">0</span> puntos</div>
-  <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:-10px 0 14px;"></p>
+  <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
   <div id="wheelWrap">
     <div id="bulbRing"></div>
@@ -807,7 +807,7 @@
     document.getElementById('bankCountLabel').textContent = TOTAL_QUESTIONS + ' / ' + TARGET_TOTAL;
     document.getElementById('bankBarFill').style.width = Math.min(100, (shown/TARGET_TOTAL)*100) + '%';
     const tq = document.getElementById('totalQCount');
-    if(tq) tq.textContent = TOTAL_QUESTIONS + ' preguntas en el banco, repartidas en 6 temas × 5 niveles';
+    if(tq) tq.textContent = TOTAL_QUESTIONS + ' preguntas en el banco, repartidas en ' + TOPICS.length + ' temas × 5 niveles';
   }
 
   // -------- Almacenamiento: funciona dentro de Claude.ai (window.storage) o como PWA independiente (localStorage) --------
