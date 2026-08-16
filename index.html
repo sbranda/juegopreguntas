@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rueda de Preguntas</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12121a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rueda">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#12121a;
+    --panel:#1b1b28;
+    --panel-line:#2c2c3d;
+    --text:#f0efe9;
+    --text-dim:#9a98a8;
+    --accent:#ffd166;
+    --good:#4fd68c;
+    --bad:#ff5d6c;
+
+    --c-historia:#ef6461;
+    --c-ciencia:#4fb0c6;
+    --c-geografia:#7cc576;
+    --c-cine:#c78ee8;
+    --c-deportes:#ffb84d;
+    --c-arte:#5f9df7;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background:radial-gradient(ellipse at 50% 0%, #1b1b2e 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    overflow-x:hidden;
+  }
+  #app{
+    max-width:520px; margin:0 auto;
+    min-height:100vh;
+    display:flex; flex-direction:column;
+    padding:20px 18px 40px;
+    align-items:center;
+  }
+  header{
+    text-align:center; margin-bottom:6px; width:100%;
+  }
+  h1{
+    font-size:22px; letter-spacing:0.02em; margin:0 0 2px;
+    font-weight:800;
+  }
+  h1 span{ color:var(--accent); }
+  .subtitle{
+    font-size:12.5px; color:var(--text-dim); margin:0;
+  }
+  #score{
+    display:flex; align-items:center; gap:6px;
+    font-size:13px; color:var(--accent); font-weight:700;
+    margin:10px 0 18px;
+    background:rgba(255,209,102,0.08);
+    border:1px solid rgba(255,209,102,0.25);
+    padding:6px 14px; border-radius:20px;
+  }
+
+  /* ---- Wheel ---- */
+  #wheelWrap{
+    position:relative;
+    width:min(88vw, 340px); height:min(88vw, 340px);
+    margin:6px auto 20px;
+  }
+  #pointer{
+    position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    width:0; height:0;
+    border-left:14px solid transparent;
+    border-right:14px solid transparent;
+    border-top:22px solid var(--accent);
+    z-index:3;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  }
+  #wheel{
+    width:100%; height:100%;
+    border-radius:50%;
+    position:relative;
+    border:5px solid #26263a;
+    box-shadow:0 0 0 2px rgba(255,255,255,0.04), 0 20px 50px rgba(0,0,0,0.5);
+    transition: transform 4.5s cubic-bezier(0.12,0.85,0.15,1);
+  }
+  #wheelCenter{
+    position:absolute; top:50%; left:50%;
+    width:56px; height:56px;
+    margin:-28px 0 0 -28px;
+    border-radius:50%;
+    background:var(--panel);
+    border:3px solid var(--accent);
+    z-index:2;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px;
+  }
+  .seg-label{
+    position:absolute;
+    left:50%; top:50%;
+    width:120px;
+    margin-left:-60px;
+    text-align:center;
+    font-size:12px; font-weight:800;
+    color:rgba(0,0,0,0.72);
+    letter-spacing:0.02em;
+    pointer-events:none;
+    text-shadow:0 1px 1px rgba(255,255,255,0.15);
+  }
+  .seg-levels{
+    display:flex; gap:2px; justify-content:center; margin-top:2px;
+  }
+  .seg-dot{
+    width:5px; height:5px; border-radius:50%;
+    background:rgba(0,0,0,0.25);
+  }
+  .seg-dot.on{ background:rgba(0,0,0,0.75); }
+
+  #spinBtn{
+    background:var(--accent);
+    color:#1a1608;
+    border:none;
+    padding:14px 40px;
+    font-size:15px; font-weight:800;
+    letter-spacing:0.03em;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(255,209,102,0.25);
+    transition:transform .15s ease, opacity .15s ease;
+  }
+  #spinBtn:active{ transform:scale(0.96); }
+  #spinBtn:disabled{ opacity:0.4; cursor:default; }
+
+  /* ---- Topic levels legend ---- */
+  #legendGrid{
+    width:100%;
+    display:grid; grid-template-columns:repeat(2,1fr);
+    gap:8px; margin-top:22px;
+  }
+  .legendItem{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:9px 12px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:12px;
+  }
+  .legendItem .name{
+    display:flex; align-items:center; gap:7px;
+    font-weight:700;
+  }
+  .legendItem .swatch{
+    width:9px; height:9px; border-radius:50%;
+  }
+  .legendItem .lvl{
+    color:var(--text-dim); font-size:11px;
+  }
+
+  /* ---- Modal ---- */
+  #modalOverlay{
+    position:fixed; inset:0;
+    background:rgba(8,8,14,0.82);
+    backdrop-filter:blur(3px);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:20;
+    padding:20px;
+  }
+  #modalOverlay.show{ display:flex; }
+  #qCard{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:16px;
+    padding:22px 20px 20px;
+    max-width:420px; width:100%;
+    box-shadow:0 30px 80px rgba(0,0,0,0.5);
+  }
+  #qTopicTag{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; font-weight:800; letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:4px 10px; border-radius:20px;
+    margin-bottom:14px;
+  }
+  #qLevel{
+    float:right;
+    font-size:11px; color:var(--text-dim); font-weight:700;
+  }
+  #qText{
+    font-size:17px; font-weight:700; line-height:1.4;
+    margin:0 0 18px;
+    clear:both;
+  }
+  .option{
+    display:block; width:100%;
+    background:#232332;
+    border:1.5px solid var(--panel-line);
+    color:var(--text);
+    text-align:left;
+    padding:12px 14px;
+    border-radius:10px;
+    font-size:14px;
+    margin-bottom:9px;
+    cursor:pointer;
+    transition:all .15s ease;
+    font-family:inherit;
+  }
+  .option:hover{ border-color:var(--accent); }
+  .option.correct{
+    background:rgba(79,214,140,0.15);
+    border-color:var(--good);
+    color:var(--good);
+  }
+  .option.wrong{
+    background:rgba(255,93,108,0.15);
+    border-color:var(--bad);
+    color:var(--bad);
+  }
+  .option:disabled{ cursor:default; }
+  #feedback{
+    margin-top:14px; min-height:20px;
+    font-size:13px; font-weight:700; text-align:center;
+  }
+  #feedback.good{ color:var(--good); }
+  #feedback.bad{ color:var(--bad); }
+  #continueBtn{
+    display:none;
+    width:100%; margin-top:14px;
+    background:var(--accent); color:#1a1608;
+    border:none; padding:12px; border-radius:10px;
+    font-weight:800; font-size:14px; cursor:pointer;
+  }
+
+  #winOverlay{
+    position:fixed; inset:0;
+    background:rgba(8,8,14,0.92);
+    display:none; align-items:center; justify-content:center;
+    z-index:30; text-align:center; padding:24px;
+  }
+  #winOverlay.show{ display:flex; flex-direction:column; align-items:center; }
+  #winOverlay h2{
+    font-size:26px; color:var(--accent); margin:0 0 10px;
+  }
+  #winOverlay p{ color:var(--text-dim); max-width:360px; margin:0 0 20px; }
+
+  /* ---- Bank expansion panel ---- */
+  #bankPanel{
+    width:100%; margin-top:18px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  #bankPanel h3{
+    font-size:12.5px; margin:0 0 4px; font-weight:800;
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  #bankPanel h3 span{ color:var(--accent); }
+  #bankBarTrack{
+    width:100%; height:7px; border-radius:5px;
+    background:#2a2a3c; overflow:hidden; margin:8px 0 10px;
+  }
+  #bankBarFill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--accent), #ffb454);
+    transition:width .4s ease;
+  }
+  #genStatus{
+    font-size:11.5px; color:var(--text-dim); min-height:16px; margin-bottom:10px;
+  }
+  #genBtn{
+    width:100%;
+    background:transparent;
+    border:1.5px solid var(--accent);
+    color:var(--accent);
+    padding:10px; border-radius:9px;
+    font-weight:800; font-size:12.5px;
+    cursor:pointer;
+  }
+  #genBtn:disabled{ opacity:0.45; cursor:default; }
+  #genBtn.stop{ border-color:var(--bad); color:var(--bad); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Rueda de <span>Preguntas</span></h1>
+    <p class="subtitle">Gira, responde y sube de nivel en cada tema</p>
+  </header>
+
+  <div id="score">🏆 <span id="scoreVal">0</span> puntos</div>
+  <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:-10px 0 14px;"></p>
+
+  <div id="wheelWrap">
+    <div id="pointer"></div>
+    <div id="wheelCenter">🎯</div>
+    <svg id="wheel" viewBox="0 0 300 300" width="300" height="300" style="width:100%;height:100%;"></svg>
+  </div>
+
+  <button id="spinBtn">Girar la rueda</button>
+
+  <div id="legendGrid"></div>
+
+  <div id="bankPanel">
+    <h3>Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
+    <div id="bankBarTrack"><div id="bankBarFill"></div></div>
+    <div id="genStatus">Toca el botón para generar más preguntas con IA hasta llegar a 500.</div>
+    <button id="genBtn">Generar más preguntas (IA)</button>
+  </div>
+</div>
+
+<div id="modalOverlay">
+  <div id="qCard">
+    <span id="qLevel"></span>
+    <div id="qTopicTag"></div>
+    <p id="qText"></p>
+    <div id="options"></div>
+    <div id="feedback"></div>
+    <button id="continueBtn">Continuar</button>
+  </div>
+</div>
+
+<div id="winOverlay">
+  <h2>🎉 ¡Nivel máximo en todo!</h2>
+  <p>Llegaste al nivel 5 en los seis temas. Puedes seguir jugando para sumar más puntos.</p>
+  <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
+</div>
+
+<script>
+(function(){
+  // ---------------- PWA: registro del service worker ----------------
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{ /* no disponible, la app sigue funcionando igual */ });
+    });
+  }
+
+  // ---------------- Data ----------------
+  const TOPICS = [
+    { key:'historia', name:'Historia', color:'var(--c-historia)', icon:'🏛️' },
+    { key:'ciencia', name:'Ciencia', color:'var(--c-ciencia)', icon:'🔬' },
+    { key:'geografia', name:'Geografía', color:'var(--c-geografia)', icon:'🌍' },
+    { key:'cine', name:'Cine y Series', color:'var(--c-cine)', icon:'🎬' },
+    { key:'deportes', name:'Deportes', color:'var(--c-deportes)', icon:'⚽' },
+    { key:'arte', name:'Arte y Cultura', color:'var(--c-arte)', icon:'🎨' },
+  ];
+
+  // questions[topicKey][level] = array de {q, options:[4], correct:index}
+  const QUESTIONS = {
+    historia: {
+      1:[
+        {q:"¿En qué continente comenzó la Primera Guerra Mundial?", options:["Europa","Asia","África","Oceanía"], correct:0},
+        {q:"¿En qué siglo llegó Cristóbal Colón a América?", options:["XIV","XV","XVI","XVII"], correct:1},
+        {q:"¿Qué antigua civilización construyó las pirámides de Guiza?", options:["Egipcia","Maya","Persa","Sumeria"], correct:0},
+      ],
+      2:[
+        {q:"¿Qué imperio construyó Machu Picchu?", options:["Azteca","Maya","Inca","Olmeca"], correct:2},
+        {q:"¿Qué revolución comenzó en Francia en 1789?", options:["Revolución Industrial","Revolución Francesa","Revolución Rusa","Revolución Mexicana"], correct:1},
+        {q:"¿Quién fue, junto a San Martín, uno de los principales libertadores de Sudamérica?", options:["Simón Bolívar","Hernán Cortés","Francisco Pizarro","Bernardo O'Higgins"], correct:0},
+      ],
+      3:[
+        {q:"¿En qué año cayó el Muro de Berlín?", options:["1975","1989","1991","2001"], correct:1},
+        {q:"¿En qué año terminó la Segunda Guerra Mundial?", options:["1943","1945","1947","1950"], correct:1},
+        {q:"¿Qué imperio gobernó gran parte de Europa bajo Napoleón Bonaparte?", options:["Imperio Austrohúngaro","Imperio Francés","Imperio Otomano","Imperio Ruso"], correct:1},
+      ],
+      4:[
+        {q:"¿Quién fue el primer emperador de Roma?", options:["Julio César","Nerón","Augusto","Trajano"], correct:2},
+        {q:"¿Qué faraón egipcio es famoso por su tumba casi intacta descubierta en 1922?", options:["Ramsés II","Akenatón","Tutankamón","Keops"], correct:2},
+        {q:"¿Qué guerra de la Antigua Grecia enfrentó a Esparta y Atenas?", options:["Guerras Médicas","Guerra del Peloponeso","Guerra de Troya","Guerras Púnicas"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué tratado puso fin formalmente a la Primera Guerra Mundial?", options:["Tratado de Utrecht","Tratado de Versalles","Tratado de Tordesillas","Congreso de Viena"], correct:1},
+        {q:"¿Qué conferencia de 1945 definió la ocupación de Alemania tras la guerra?", options:["Conferencia de Potsdam","Congreso de Viena","Conferencia de Múnich","Tratado de Roma"], correct:0},
+        {q:"¿Qué revolución de 1917 llevó a los bolcheviques al poder en Rusia?", options:["Revolución de Febrero","Revolución de Octubre","Revolución Cultural","Revolución Naranja"], correct:1},
+      ],
+    },
+    ciencia: {
+      1:[
+        {q:"¿Cuál es el planeta más cercano al Sol?", options:["Venus","Marte","Mercurio","Tierra"], correct:2},
+        {q:"¿Cuál es el órgano principal del sistema circulatorio?", options:["Pulmón","Corazón","Hígado","Riñón"], correct:1},
+        {q:"¿Qué gas respiramos principalmente para vivir?", options:["Nitrógeno","Dióxido de carbono","Oxígeno","Hidrógeno"], correct:2},
+      ],
+      2:[
+        {q:"¿Qué gas necesitan las plantas para hacer fotosíntesis?", options:["Oxígeno","Dióxido de carbono","Nitrógeno","Hidrógeno"], correct:1},
+        {q:"¿Cuántos huesos tiene aproximadamente el cuerpo humano adulto?", options:["106","206","306","406"], correct:1},
+        {q:"¿Qué estado de la materia tiene forma y volumen definidos?", options:["Gaseoso","Líquido","Sólido","Plasma"], correct:2},
+      ],
+      3:[
+        {q:"¿Cuál es la unidad básica de la herencia genética?", options:["Célula","Cromosoma","Gen","Proteína"], correct:2},
+        {q:"¿Qué científico propuso la teoría de la evolución por selección natural?", options:["Mendel","Darwin","Pasteur","Lamarck"], correct:1},
+        {q:"¿Cuál es la velocidad aproximada de la luz en el vacío?", options:["30.000 km/s","300.000 km/s","3.000.000 km/s","300 km/s"], correct:1},
+      ],
+      4:[
+        {q:"¿Qué partícula subatómica tiene carga negativa?", options:["Protón","Neutrón","Electrón","Fotón"], correct:2},
+        {q:"¿Qué elemento químico tiene el símbolo 'Fe'?", options:["Flúor","Hierro","Francio","Fósforo"], correct:1},
+        {q:"¿Qué capa de la Tierra, líquida, genera el campo magnético del planeta?", options:["Corteza","Manto","Núcleo externo","Núcleo interno"], correct:2},
+      ],
+      5:[
+        {q:"¿Qué científico formuló la teoría de la relatividad general?", options:["Newton","Bohr","Einstein","Planck"], correct:2},
+        {q:"¿Qué partícula, confirmada en el CERN en 2012, se asocia al origen de la masa?", options:["Neutrino","Bosón de Higgs","Quark top","Gluón"], correct:1},
+        {q:"¿Qué científica ganó dos premios Nobel en categorías distintas (Física y Química)?", options:["Rosalind Franklin","Marie Curie","Ada Lovelace","Lise Meitner"], correct:1},
+      ],
+    },
+    geografia: {
+      1:[
+        {q:"¿Cuál es el río más largo del mundo?", options:["Nilo","Amazonas","Yangtsé","Misisipi"], correct:1},
+        {q:"¿Cuál es el océano más grande del mundo?", options:["Atlántico","Índico","Pacífico","Ártico"], correct:2},
+        {q:"¿Cuál es el continente más poblado?", options:["África","Asia","Europa","América"], correct:1},
+      ],
+      2:[
+        {q:"¿Qué país tiene más husos horarios?", options:["Rusia","Estados Unidos","China","Francia"], correct:3},
+        {q:"¿Cuál es el país más grande del mundo por superficie?", options:["Canadá","China","Rusia","Brasil"], correct:2},
+        {q:"¿Qué país europeo tiene forma de bota?", options:["España","Italia","Grecia","Portugal"], correct:1},
+      ],
+      3:[
+        {q:"¿Cuál es el desierto más grande del mundo (no polar)?", options:["Sahara","Gobi","Atacama","Kalahari"], correct:0},
+        {q:"¿Cuál es la montaña más alta del mundo?", options:["K2","Everest","Kilimanjaro","Aconcagua"], correct:1},
+        {q:"¿Qué línea imaginaria divide la Tierra en hemisferio norte y sur?", options:["Meridiano de Greenwich","Trópico de Cáncer","Ecuador","Círculo Polar Ártico"], correct:2},
+      ],
+      4:[
+        {q:"¿Qué cordillera separa Europa de Asia?", options:["Alpes","Cárpatos","Urales","Pirineos"], correct:2},
+        {q:"¿Cuál es el lago (mar interior) más grande del mundo?", options:["Lago Superior","Mar Caspio","Lago Victoria","Lago Baikal"], correct:1},
+        {q:"¿Qué país centroamericano conecta los océanos Atlántico y Pacífico mediante un canal?", options:["Costa Rica","Nicaragua","Panamá","Honduras"], correct:2},
+      ],
+      5:[
+        {q:"¿Cuál es la capital de Kazajistán?", options:["Almaty","Astaná","Bishkek","Tashkent"], correct:1},
+        {q:"¿Cuál es la capital de Australia?", options:["Sídney","Melbourne","Canberra","Perth"], correct:2},
+        {q:"¿Qué estrecho separa España de Marruecos?", options:["Estrecho de Ormuz","Estrecho de Gibraltar","Estrecho de Bering","Estrecho de Magallanes"], correct:1},
+      ],
+    },
+    cine: {
+      1:[
+        {q:"¿Qué estudio creó a Mickey Mouse?", options:["Warner Bros","Disney","Pixar","Universal"], correct:1},
+        {q:"¿En qué saga de películas aparece Luke Skywalker?", options:["Star Trek","Star Wars","Dune","Interestelar"], correct:1},
+        {q:"¿Qué animal es el protagonista de 'El Rey León'?", options:["Tigre","León","Leopardo","Guepardo"], correct:1},
+      ],
+      2:[
+        {q:"¿Quién dirigió la trilogía original de 'El Señor de los Anillos'?", options:["James Cameron","Peter Jackson","Ridley Scott","Christopher Nolan"], correct:1},
+        {q:"¿Quién interpretó a Iron Man en el universo cinematográfico de Marvel?", options:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"], correct:2},
+        {q:"¿En qué serie aparecen los Siete Reinos de Poniente?", options:["Vikingos","Juego de Tronos","The Witcher","Los Anillos de Poder"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué película ganó el Óscar a Mejor Película en 2020 (ceremonia)?", options:["1917","Joker","Parásitos","Once Upon a Time in Hollywood"], correct:2},
+        {q:"¿Qué director creó 'Jurassic Park' y 'E.T.'?", options:["George Lucas","Steven Spielberg","James Cameron","Robert Zemeckis"], correct:1},
+        {q:"¿En qué serie de Netflix compiten personas endeudadas en juegos infantiles mortales?", options:["Élite","El juego del calamar","Dark","Money Heist"], correct:1},
+      ],
+      4:[
+        {q:"¿Quién compuso la banda sonora original de 'Star Wars'?", options:["Hans Zimmer","John Williams","Danny Elfman","Alan Silvestri"], correct:1},
+        {q:"¿Qué actor interpretó al Joker en la película de 2019?", options:["Jared Leto","Heath Ledger","Joaquin Phoenix","Jack Nicholson"], correct:2},
+        {q:"¿Qué estudio de animación creó 'Toy Story'?", options:["DreamWorks","Pixar","Illumination","Blue Sky"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué director es conocido por su uso recurrente de estructuras narrativas no lineales, como en 'Pulp Fiction'?", options:["Wes Anderson","Quentin Tarantino","David Fincher","Coen Brothers"], correct:1},
+        {q:"¿Qué director es conocido por su estilo visual simétrico en películas como 'The Grand Budapest Hotel'?", options:["Tim Burton","Wes Anderson","Guillermo del Toro","Sofia Coppola"], correct:1},
+        {q:"¿Qué actriz ganó el Óscar a mejor actriz por 'La La Land' (2017)?", options:["Natalie Portman","Emma Stone","Jennifer Lawrence","Meryl Streep"], correct:1},
+      ],
+    },
+    deportes: {
+      1:[
+        {q:"¿Cada cuántos años se celebran los Juegos Olímpicos de verano?", options:["2","3","4","5"], correct:2},
+        {q:"¿Cuántos jugadores tiene un equipo de fútbol en el campo (sin suplentes)?", options:["9","10","11","12"], correct:2},
+        {q:"¿En qué deporte se usan los términos 'birdie' y 'bogey'?", options:["Tenis","Golf","Béisbol","Cricket"], correct:1},
+      ],
+      2:[
+        {q:"¿En qué deporte se usa el término 'ace'?", options:["Fútbol","Tenis","Boxeo","Golf"], correct:1},
+        {q:"¿Cuántos puntos vale un touchdown en fútbol americano (sin conversión)?", options:["3","6","7","9"], correct:1},
+        {q:"¿En qué país se originó el judo?", options:["China","Corea","Japón","Tailandia"], correct:2},
+      ],
+      3:[
+        {q:"¿Qué país ha ganado más Copas del Mundo de fútbol masculino?", options:["Alemania","Argentina","Brasil","Italia"], correct:2},
+        {q:"¿Qué país ganó el Mundial de fútbol de 2022?", options:["Francia","Brasil","Argentina","Croacia"], correct:2},
+        {q:"¿Cuántos anillos tiene la bandera olímpica?", options:["4","5","6","7"], correct:1},
+      ],
+      4:[
+        {q:"¿Cuántos jugadores tiene un equipo de básquetbol en cancha?", options:["4","5","6","7"], correct:1},
+        {q:"¿Qué tenista acumulaba más títulos de Grand Slam masculinos hacia 2023?", options:["Roger Federer","Rafael Nadal","Novak Djokovic","Andy Murray"], correct:2},
+        {q:"¿Qué país organizó los Juegos Olímpicos de verano de 2016?", options:["China","Reino Unido","Brasil","Japón"], correct:2},
+      ],
+      5:[
+        {q:"¿En qué año se celebraron los primeros Juegos Olímpicos modernos?", options:["1886","1896","1900","1912"], correct:1},
+        {q:"¿Quién es considerado el fundador de los Juegos Olímpicos modernos?", options:["Avery Brundage","Pierre de Coubertin","Juan Antonio Samaranch","Thomas Bach"], correct:1},
+        {q:"¿Qué boxeador es conocido por la frase 'Flota como mariposa, pica como abeja'?", options:["Mike Tyson","Muhammad Ali","George Foreman","Joe Frazier"], correct:1},
+      ],
+    },
+    arte: {
+      1:[
+        {q:"¿Quién pintó la Mona Lisa?", options:["Miguel Ángel","Rafael","Leonardo da Vinci","Donatello"], correct:2},
+        {q:"¿Qué instrumento musical tiene teclas blancas y negras?", options:["Violín","Piano","Flauta","Arpa"], correct:1},
+        {q:"¿Quién pintó 'La noche estrellada'?", options:["Monet","Van Gogh","Cézanne","Renoir"], correct:1},
+      ],
+      2:[
+        {q:"¿A qué movimiento artístico pertenece Salvador Dalí?", options:["Cubismo","Surrealismo","Impresionismo","Barroco"], correct:1},
+        {q:"¿Qué pintor español es conocido por su obra 'Guernica'?", options:["Dalí","Miró","Picasso","Velázquez"], correct:2},
+        {q:"¿Qué museo de París alberga la Mona Lisa?", options:["Museo de Orsay","El Louvre","Centro Pompidou","Petit Palais"], correct:1},
+      ],
+      3:[
+        {q:"¿Qué escultura de mármol representa a un joven bíblico, obra de Miguel Ángel?", options:["El Pensador","David","La Piedad","El Moisés"], correct:1},
+        {q:"¿Qué compositor alemán, sordo en sus últimos años, escribió la Novena Sinfonía?", options:["Mozart","Bach","Beethoven","Brahms"], correct:2},
+        {q:"¿Qué técnica pictórica usa puntos de color puro, asociada a Georges Seurat?", options:["Fauvismo","Puntillismo","Cubismo","Art Nouveau"], correct:1},
+      ],
+      4:[
+        {q:"¿Qué pintora mexicana es conocida por sus autorretratos y su relación con Diego Rivera?", options:["Rufino Tamayo","José Clemente Orozco","Frida Kahlo","David Alfaro Siqueiros"], correct:2},
+        {q:"¿Qué arquitecto catalán diseñó la Sagrada Familia en Barcelona?", options:["Antoni Gaudí","Rafael Moneo","Santiago Calatrava","Ricardo Bofill"], correct:0},
+        {q:"¿Qué movimiento del siglo XX, liderado por Picasso y Braque, usa formas geométricas y múltiples perspectivas?", options:["Fauvismo","Cubismo","Dadaísmo","Futurismo"], correct:1},
+      ],
+      5:[
+        {q:"¿Qué corriente artística, liderada por Monet, se caracteriza por captar la luz y el instante?", options:["Expresionismo","Impresionismo","Fauvismo","Puntillismo"], correct:1},
+        {q:"¿Qué escultura griega sin brazos, hallada en Milos, es una obra famosa del Louvre?", options:["Venus de Milo","Nike de Samotracia","Laocoonte","El Discóbolo"], correct:0},
+        {q:"¿Qué artista italiano pintó el techo de la Capilla Sixtina?", options:["Rafael","Leonardo da Vinci","Miguel Ángel","Botticelli"], correct:2},
+      ],
+    }
+  };
+
+  // total de preguntas disponibles (para mostrarlo en pantalla)
+  let TOTAL_QUESTIONS = 0;
+  const HARDCODED_PER_BUCKET = 3;
+  const TARGET_TOTAL = 500;
+  const TARGET_PER_BUCKET = Math.ceil(TARGET_TOTAL / (6*5)); // 30 buckets -> 17 c/u
+
+  function recomputeTotal(){
+    TOTAL_QUESTIONS = 0;
+    Object.values(QUESTIONS).forEach(levels=>{
+      Object.values(levels).forEach(arr=> TOTAL_QUESTIONS += arr.length);
+    });
+    return TOTAL_QUESTIONS;
+  }
+  recomputeTotal();
+
+  function updateBankUI(){
+    recomputeTotal();
+    const shown = Math.min(TOTAL_QUESTIONS, TARGET_TOTAL);
+    document.getElementById('bankCountLabel').textContent = TOTAL_QUESTIONS + ' / ' + TARGET_TOTAL;
+    document.getElementById('bankBarFill').style.width = Math.min(100, (shown/TARGET_TOTAL)*100) + '%';
+    const tq = document.getElementById('totalQCount');
+    if(tq) tq.textContent = TOTAL_QUESTIONS + ' preguntas en el banco, repartidas en 6 temas × 5 niveles';
+  }
+
+  // -------- Persistencia: cargar preguntas generadas por IA en sesiones anteriores --------
+  async function loadExtras(){
+    for(const topic of TOPICS){
+      for(let level=1; level<=5; level++){
+        try{
+          const res = await window.storage.get(`extra:${topic.key}:${level}`, false);
+          if(res && res.value){
+            const extra = JSON.parse(res.value);
+            if(Array.isArray(extra) && extra.length){
+              QUESTIONS[topic.key][level] = QUESTIONS[topic.key][level].concat(extra);
+            }
+          }
+        }catch(e){ /* aún no hay preguntas extra guardadas para este bucket */ }
+      }
+    }
+    updateBankUI();
+  }
+
+  async function saveExtras(topicKey, level, extraArr){
+    try{
+      await window.storage.set(`extra:${topicKey}:${level}`, JSON.stringify(extraArr), false);
+    }catch(e){ console.error('No se pudo guardar el progreso del banco:', e); }
+  }
+
+  const state = {};
+  TOPICS.forEach(t => state[t.key] = 1); // nivel actual por tema (1-5)
+  let score = 0;
+  let spinning = false;
+  let currentTopicKey = null;
+  let currentQuestionData = null;
+
+  // usedIndex['topicKey-level'] = Set de índices ya preguntados, para no repetir hasta agotar el pool
+  const usedIndex = {};
+  function pickQuestion(topicKey, level){
+    const pool = QUESTIONS[topicKey][level];
+    const key = topicKey + '-' + level;
+    if(!usedIndex[key]) usedIndex[key] = new Set();
+    if(usedIndex[key].size >= pool.length) usedIndex[key].clear(); // se agotó el pool, reiniciar
+    let idx;
+    do { idx = Math.floor(Math.random()*pool.length); } while(usedIndex[key].has(idx) && usedIndex[key].size < pool.length);
+    usedIndex[key].add(idx);
+    return pool[idx];
+  }
+
+  updateBankUI();
+  loadExtras();
+
+  // -------- Generación de preguntas nuevas vía API de Claude --------
+  async function callClaudeForQuestions(topicName, level, count, existingTexts){
+    const prompt = `Genera ${count} preguntas de trivia en español sobre el tema "${topicName}", de dificultad nivel ${level} de 5 (1 = muy fácil, 5 = muy difícil, tipo experto).
+Cada pregunta debe tener 4 opciones de respuesta, solo una correcta.
+No repitas ni te parezcas demasiado a estas preguntas ya existentes: ${existingTexts.slice(0,25).join(' | ') || '(ninguna todavía)'}.
+Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backticks ni markdown, con este formato exacto:
+[{"q":"texto de la pregunta","options":["op1","op2","op3","op4"],"correct":0}]`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = (data.content || []).map(b => b.text || '').join('\n');
+    const cleaned = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return parsed.filter(q => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length === 4 && Number.isInteger(q.correct));
+  }
+
+  const genBtn = document.getElementById('genBtn');
+  const genStatus = document.getElementById('genStatus');
+  let generating = false;
+  let stopRequested = false;
+
+  genBtn.addEventListener('click', ()=>{
+    if(generating){
+      stopRequested = true;
+      genBtn.disabled = true;
+      genStatus.textContent = 'Deteniendo…';
+      return;
+    }
+    stopRequested = false;
+    expandBank();
+  });
+
+  async function expandBank(){
+    generating = true;
+    genBtn.textContent = 'Detener';
+    genBtn.classList.add('stop');
+    let consecutiveFailures = 0;
+
+    outer:
+    for(const topic of TOPICS){
+      for(let level=1; level<=5; level++){
+        if(stopRequested) break outer;
+        let pool = QUESTIONS[topic.key][level];
+        while(pool.length < TARGET_PER_BUCKET && !stopRequested){
+          const need = Math.min(6, TARGET_PER_BUCKET - pool.length);
+          genStatus.textContent = `Generando ${topic.icon} ${topic.name} · nivel ${level} (${pool.length}/${TARGET_PER_BUCKET})…`;
+          try{
+            const existingTexts = pool.map(q=>q.q);
+            const newQs = await callClaudeForQuestions(topic.name, level, need, existingTexts);
+            consecutiveFailures = 0;
+            const seen = new Set(pool.map(q=>q.q));
+            const uniqueNew = newQs.filter(q=>{
+              if(seen.has(q.q)) return false;
+              seen.add(q.q); return true;
+            });
+            pool.push(...uniqueNew);
+            QUESTIONS[topic.key][level] = pool;
+            updateBankUI();
+            await saveExtras(topic.key, level, pool.slice(HARDCODED_PER_BUCKET));
+            if(uniqueNew.length === 0) break; // evita loop infinito si la IA no aporta preguntas nuevas
+          }catch(e){
+            console.error(e);
+            consecutiveFailures++;
+            if(consecutiveFailures >= 2){
+              genStatus.textContent = 'La generación con IA solo está disponible dentro de Claude.ai. Fuera de ahí, el juego funciona igual con las preguntas ya incluidas.';
+              stopRequested = true;
+              break outer;
+            }
+            genStatus.textContent = 'Hubo un problema generando preguntas. Reintentando…';
+            await new Promise(r=>setTimeout(r,900));
+          }
+        }
+        if(stopRequested) break outer;
+      }
+    }
+
+    generating = false;
+    const aiUnavailable = stopRequested && consecutiveFailures >= 2;
+    stopRequested = false;
+    genBtn.disabled = false;
+    genBtn.textContent = 'Generar más preguntas (IA)';
+    genBtn.classList.remove('stop');
+    if(!aiUnavailable){
+      genStatus.textContent = TOTAL_QUESTIONS >= TARGET_TOTAL
+        ? `Listo — ${TOTAL_QUESTIONS} preguntas en el banco.`
+        : `Pausado en ${TOTAL_QUESTIONS} preguntas. Toca de nuevo para seguir generando.`;
+    }
+  }
+
+  // ---------------- Build wheel (SVG) ----------------
+  const svg = document.getElementById('wheel');
+  const R = 150, CX = 150, CY = 150;
+  const N = TOPICS.length;
+  const segAngle = 360 / N;
+
+  function polarToXY(cx,cy,r,angleDeg){
+    const rad = (angleDeg-90) * Math.PI/180;
+    return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
+  }
+
+  function resolveColor(varStr){
+    const tmp = document.createElement('div');
+    tmp.style.color = varStr;
+    document.body.appendChild(tmp);
+    const rgb = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    return rgb;
+  }
+
+  TOPICS.forEach((t, i)=>{
+    const startAngle = i*segAngle;
+    const endAngle = startAngle+segAngle;
+    const p1 = polarToXY(CX,CY,R,startAngle);
+    const p2 = polarToXY(CX,CY,R,endAngle);
+    const largeArc = segAngle > 180 ? 1 : 0;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', `M${CX},${CY} L${p1.x},${p1.y} A${R},${R} 0 ${largeArc} 1 ${p2.x},${p2.y} Z`);
+    path.setAttribute('fill', resolveColor(t.color));
+    path.setAttribute('stroke', '#12121a');
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+
+    const midAngle = startAngle + segAngle/2;
+    const labelPos = polarToXY(CX,CY,R*0.62,midAngle);
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', labelPos.x);
+    text.setAttribute('y', labelPos.y);
+    text.setAttribute('text-anchor','middle');
+    text.setAttribute('dominant-baseline','middle');
+    text.setAttribute('font-size','11');
+    text.setAttribute('font-weight','800');
+    text.setAttribute('fill','rgba(0,0,0,0.72)');
+    text.setAttribute('transform', `rotate(${midAngle}, ${labelPos.x}, ${labelPos.y})`);
+    text.textContent = t.icon + ' ' + t.name;
+    svg.appendChild(text);
+  });
+
+  // ---------------- Legend ----------------
+  const legendGrid = document.getElementById('legendGrid');
+  function renderLegend(){
+    legendGrid.innerHTML = '';
+    TOPICS.forEach(t=>{
+      const div = document.createElement('div');
+      div.className = 'legendItem';
+      const lvl = state[t.key];
+      div.innerHTML = `
+        <span class="name"><span class="swatch" style="background:${t.color}"></span>${t.icon} ${t.name}</span>
+        <span class="lvl">Nv ${lvl}/5</span>`;
+      legendGrid.appendChild(div);
+    });
+  }
+  renderLegend();
+
+  // ---------------- Score ----------------
+  const scoreVal = document.getElementById('scoreVal');
+  function renderScore(){ scoreVal.textContent = score; }
+
+  // ---------------- Spin logic ----------------
+  const wheel = document.getElementById('wheel');
+  const spinBtn = document.getElementById('spinBtn');
+  let currentRotation = 0;
+
+  spinBtn.addEventListener('click', spin);
+
+  function spin(){
+    if(spinning) return;
+    spinning = true;
+    spinBtn.disabled = true;
+
+    const chosenIndex = Math.floor(Math.random()*N);
+    // pointer is at top (angle 0 relative to segment start-based CX,CY at -90deg convention already baked in)
+    // we want the chosen segment's middle to end at angle 0 (top) after rotation
+    const segMid = chosenIndex*segAngle + segAngle/2;
+    const fullSpins = 5 + Math.floor(Math.random()*3); // 5-7 vueltas
+    const targetRotation = fullSpins*360 + (360 - segMid);
+    currentRotation += targetRotation;
+
+    wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+    setTimeout(()=>{
+      spinning = false;
+      openQuestion(TOPICS[chosenIndex].key);
+    }, 4600);
+  }
+
+  // ---------------- Question modal ----------------
+  const modalOverlay = document.getElementById('modalOverlay');
+  const qTopicTag = document.getElementById('qTopicTag');
+  const qLevel = document.getElementById('qLevel');
+  const qText = document.getElementById('qText');
+  const optionsDiv = document.getElementById('options');
+  const feedback = document.getElementById('feedback');
+  const continueBtn = document.getElementById('continueBtn');
+
+  function openQuestion(topicKey){
+    currentTopicKey = topicKey;
+    const topic = TOPICS.find(t=>t.key===topicKey);
+    const level = state[topicKey];
+    const qData = pickQuestion(topicKey, level);
+    currentQuestionData = qData;
+
+    qTopicTag.textContent = topic.icon + ' ' + topic.name;
+    qTopicTag.style.background = topic.color;
+    qTopicTag.style.color = 'rgba(0,0,0,0.75)';
+    qLevel.textContent = 'Nivel ' + level + ' / 5';
+    qText.textContent = qData.q;
+
+    optionsDiv.innerHTML = '';
+    feedback.textContent = '';
+    feedback.className = '';
+    continueBtn.style.display = 'none';
+
+    const order = qData.options.map((opt,idx)=>({opt,idx}));
+    // keep original order for simplicity/predictability across replays; shuffle lightly
+    for(let i=order.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [order[i],order[j]] = [order[j],order[i]];
+    }
+
+    order.forEach(({opt, idx})=>{
+      const btn = document.createElement('button');
+      btn.className = 'option';
+      btn.textContent = opt;
+      btn.addEventListener('click', ()=>answer(idx, qData.correct, btn));
+      optionsDiv.appendChild(btn);
+    });
+
+    modalOverlay.classList.add('show');
+  }
+
+  function answer(selectedIdx, correctIdx, btnEl){
+    const allBtns = optionsDiv.querySelectorAll('.option');
+    allBtns.forEach(b=>b.disabled = true);
+
+    const isCorrect = selectedIdx === correctIdx;
+    allBtns.forEach(b=>{
+      if(b.textContent === currentQuestionData.options[correctIdx]){
+        b.classList.add('correct');
+      }
+    });
+    if(!isCorrect){
+      btnEl.classList.add('wrong');
+    }
+
+    if(isCorrect){
+      const lvl = state[currentTopicKey];
+      score += lvl*10;
+      state[currentTopicKey] = Math.min(5, lvl+1);
+      feedback.textContent = '¡Correcto! +' + (lvl*10) + ' puntos';
+      feedback.className = 'good';
+    } else {
+      state[currentTopicKey] = Math.max(1, state[currentTopicKey]-1);
+      feedback.textContent = 'No era esa. El nivel de este tema baja un poco.';
+      feedback.className = 'bad';
+    }
+
+    renderScore();
+    renderLegend();
+    continueBtn.style.display = 'block';
+  }
+
+  continueBtn.addEventListener('click', ()=>{
+    modalOverlay.classList.remove('show');
+    spinBtn.disabled = false;
+    checkWin();
+  });
+
+  function checkWin(){
+    const allMax = TOPICS.every(t => state[t.key] === 5);
+    if(allMax){
+      document.getElementById('winOverlay').classList.add('show');
+    }
+  }
+  document.getElementById('closeWinBtn').addEventListener('click', ()=>{
+    document.getElementById('winOverlay').classList.remove('show');
+  });
+
+  renderScore();
+})();
+</script>
+</body>
+</html>
