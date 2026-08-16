@@ -784,13 +784,18 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
               refreshKeyStatus();
               break outer;
             }
+
+            const isTransient = (e.code === 'API_ERROR' && (e.status === 503 || e.status === 429 || e.status === 500));
+            const isAuthError = (e.code === 'API_ERROR' && (e.status === 401 || e.status === 400 || e.status === 403));
             consecutiveFailures++;
-            if(consecutiveFailures >= 2){
+            const maxRetries = isTransient ? 6 : 2;
+
+            if(consecutiveFailures >= maxRetries){
               let reason;
-              if(e.code === 'API_ERROR' && (e.status === 401 || e.status === 400 || e.status === 403)){
+              if(isAuthError){
                 reason = 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.';
-              } else if(e.code === 'API_ERROR' && e.status === 429){
-                reason = 'Se alcanzó el límite de uso de la API por ahora. Espera un momento y reintenta.';
+              } else if(isTransient){
+                reason = 'El modelo de Gemini sigue saturado tras varios intentos. Toca "Generar" de nuevo en unos minutos.';
               } else {
                 reason = 'Error: ' + (e.message ? e.message.slice(0,180) : 'desconocido');
               }
@@ -799,8 +804,11 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
               abortedByError = true;
               break outer;
             }
-            genStatus.textContent = 'Hubo un problema generando preguntas. Reintentando…';
-            await new Promise(r=>setTimeout(r,900));
+            const waitMs = isTransient ? Math.min(15000, 1000 * Math.pow(2, consecutiveFailures)) : 900;
+            genStatus.textContent = isTransient
+              ? `Gemini está saturado, reintentando en ${Math.round(waitMs/1000)}s… (intento ${consecutiveFailures}/${maxRetries-1})`
+              : 'Hubo un problema generando preguntas. Reintentando…';
+            await new Promise(r=>setTimeout(r,waitMs));
           }
         }
         if(stopRequested) break outer;
