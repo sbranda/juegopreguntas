@@ -366,6 +366,20 @@
   }
   #genBtn:disabled{ opacity:0.45; cursor:default; }
   #genBtn.stop{ border-color:var(--bad); color:var(--bad); }
+
+  .topicRow{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 4px; border-bottom:1px solid var(--panel-line);
+    font-size:13px; font-weight:700;
+    cursor:pointer;
+  }
+  .topicRow:last-child{ border-bottom:none; }
+  .topicRow input[type="checkbox"]{
+    width:19px; height:19px; accent-color:var(--accent); cursor:pointer; flex:none;
+  }
+  .topicRow .swatchDot{
+    width:9px; height:9px; border-radius:50%; flex:none;
+  }
 </style>
 </head>
 <body>
@@ -393,6 +407,7 @@
   </div>
 
   <button id="spinBtn">Girar la rueda</button>
+  <button id="chooseTopicsBtn" style="margin-top:10px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
 
   <div id="legendGrid"></div>
 
@@ -419,6 +434,25 @@
     <div style="display:flex; gap:8px;">
       <button id="saveKeyBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Guardar clave</button>
       <button id="closeSettingsBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="topicsOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 6px; font-size:15px;">Elegí tus temas favoritos</h3>
+    <p style="font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
+      La rueda solo va a girar entre los temas marcados. Elegí al menos 2.
+    </p>
+    <div id="topicsList" style="overflow-y:auto; flex:1; margin-bottom:12px;"></div>
+    <p id="topicsWarning" style="font-size:11.5px; color:var(--bad); margin:0 0 10px; display:none;">Marcá al menos 2 temas.</p>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+      <button id="selectAllTopicsBtn" style="flex:1; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:9px; border-radius:9px; font-size:12.5px; cursor:pointer;">Marcar todos</button>
+      <button id="selectNoneTopicsBtn" style="flex:1; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:9px; border-radius:9px; font-size:12.5px; cursor:pointer;">Desmarcar todos</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="saveTopicsBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Guardar</button>
+      <button id="closeTopicsBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1084,8 +1118,6 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   // ---------------- Build wheel (SVG) ----------------
   const svg = document.getElementById('wheel');
   const R = 150, CX = 150, CY = 150;
-  const N = TOPICS.length;
-  const segAngle = 360 / N;
 
   function polarToXY(cx,cy,r,angleDeg){
     const rad = (angleDeg-90) * Math.PI/180;
@@ -1108,58 +1140,73 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     tecnologia:'Tecnología', gastronomia:'Gastronomía', actualidad:'Actualidad'
   };
 
-  TOPICS.forEach((t, i)=>{
-    const startAngle = i*segAngle;
-    const endAngle = startAngle+segAngle;
-    const p1 = polarToXY(CX,CY,R,startAngle);
-    const p2 = polarToXY(CX,CY,R,endAngle);
-    const largeArc = segAngle > 180 ? 1 : 0;
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d', `M${CX},${CY} L${p1.x},${p1.y} A${R},${R} 0 ${largeArc} 1 ${p2.x},${p2.y} Z`);
-    path.setAttribute('fill', resolveColor(t.color));
-    path.setAttribute('stroke', '#12121a');
-    path.setAttribute('stroke-width', '2');
-    svg.appendChild(path);
+  // -------- Temas favoritos: cuáles entran en la rueda --------
+  let activeTopicKeys = TOPICS.map(t=>t.key); // por defecto, todos
+  function getActiveTopics(){
+    const active = TOPICS.filter(t=>activeTopicKeys.includes(t.key));
+    return active.length ? active : TOPICS; // nunca dejar la rueda vacía
+  }
 
-    const midAngle = startAngle + segAngle/2;
-    const labelPos = polarToXY(CX,CY,R*0.66,midAngle);
+  function renderWheel(){
+    svg.innerHTML = '';
+    const active = getActiveTopics();
+    const n = active.length;
+    const seg = 360 / n;
 
-    // Orientación tangencial (como si el texto "abrazara" el círculo). En la mitad
-    // inferior de la rueda esto queda al revés, así que se voltea 180° para que
-    // siempre se lea de corrido, sin importar en qué porción caiga.
-    let rot = midAngle;
-    if(midAngle > 90 && midAngle < 270) rot += 180;
+    active.forEach((t, i)=>{
+      const startAngle = i*seg;
+      const endAngle = startAngle+seg;
+      const p1 = polarToXY(CX,CY,R,startAngle);
+      const p2 = polarToXY(CX,CY,R,endAngle);
+      const largeArc = seg > 180 ? 1 : 0;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', `M${CX},${CY} L${p1.x},${p1.y} A${R},${R} 0 ${largeArc} 1 ${p2.x},${p2.y} Z`);
+      path.setAttribute('fill', resolveColor(t.color));
+      path.setAttribute('stroke', '#12121a');
+      path.setAttribute('stroke-width', '2');
+      svg.appendChild(path);
 
-    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-    text.setAttribute('x', labelPos.x);
-    text.setAttribute('text-anchor','middle');
-    text.setAttribute('font-weight','800');
-    text.setAttribute('fill','#ffffff');
-    text.setAttribute('stroke','rgba(0,0,0,0.55)');
-    text.setAttribute('stroke-width','2');
-    text.setAttribute('paint-order','stroke');
-    text.setAttribute('transform', `rotate(${rot}, ${labelPos.x}, ${labelPos.y})`);
+      const midAngle = startAngle + seg/2;
+      const labelPos = polarToXY(CX,CY,R*0.66,midAngle);
 
-    // Ícono y nombre en dos renglones separados (se acomodan en el sentido radial,
-    // por lo que no invaden las porciones vecinas).
-    const tspanIcon = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-    tspanIcon.setAttribute('x', labelPos.x);
-    tspanIcon.setAttribute('y', labelPos.y);
-    tspanIcon.setAttribute('dy', '-5.5');
-    tspanIcon.setAttribute('font-size', '13');
-    tspanIcon.textContent = t.icon;
-    text.appendChild(tspanIcon);
+      // Orientación tangencial (como si el texto "abrazara" el círculo). En la mitad
+      // inferior de la rueda esto queda al revés, así que se voltea 180° para que
+      // siempre se lea de corrido, sin importar en qué porción caiga.
+      let rot = midAngle;
+      if(midAngle > 90 && midAngle < 270) rot += 180;
 
-    const tspanName = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-    tspanName.setAttribute('x', labelPos.x);
-    tspanName.setAttribute('y', labelPos.y);
-    tspanName.setAttribute('dy', '8.5');
-    tspanName.setAttribute('font-size', '8.7');
-    tspanName.textContent = WHEEL_LABEL[t.key] || t.name;
-    text.appendChild(tspanName);
+      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text.setAttribute('x', labelPos.x);
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('font-weight','800');
+      text.setAttribute('fill','#ffffff');
+      text.setAttribute('stroke','rgba(0,0,0,0.55)');
+      text.setAttribute('stroke-width','2');
+      text.setAttribute('paint-order','stroke');
+      text.setAttribute('transform', `rotate(${rot}, ${labelPos.x}, ${labelPos.y})`);
 
-    svg.appendChild(text);
-  });
+      // Ícono y nombre en dos renglones separados (se acomodan en el sentido radial,
+      // por lo que no invaden las porciones vecinas).
+      const tspanIcon = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      tspanIcon.setAttribute('x', labelPos.x);
+      tspanIcon.setAttribute('y', labelPos.y);
+      tspanIcon.setAttribute('dy', '-5.5');
+      tspanIcon.setAttribute('font-size', n <= 6 ? '15' : '13');
+      tspanIcon.textContent = t.icon;
+      text.appendChild(tspanIcon);
+
+      const tspanName = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      tspanName.setAttribute('x', labelPos.x);
+      tspanName.setAttribute('y', labelPos.y);
+      tspanName.setAttribute('dy', '8.5');
+      tspanName.setAttribute('font-size', n <= 6 ? '10' : '8.7');
+      tspanName.textContent = WHEEL_LABEL[t.key] || t.name;
+      text.appendChild(tspanName);
+
+      svg.appendChild(text);
+    });
+  }
+  renderWheel();
 
   // ---------------- Anillo de luces (bombillas) alrededor de la rueda ----------------
   (function buildBulbRing(){
@@ -1189,7 +1236,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   const legendGrid = document.getElementById('legendGrid');
   function renderLegend(){
     legendGrid.innerHTML = '';
-    TOPICS.forEach(t=>{
+    getActiveTopics().forEach(t=>{
       const div = document.createElement('div');
       div.className = 'legendItem';
       div.style.setProperty('--topic-color', t.color);
@@ -1201,6 +1248,77 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     });
   }
   renderLegend();
+
+  // ---------------- Temas favoritos: selector ----------------
+  const chooseTopicsBtn = document.getElementById('chooseTopicsBtn');
+  const topicsOverlay = document.getElementById('topicsOverlay');
+  const topicsList = document.getElementById('topicsList');
+  const topicsWarning = document.getElementById('topicsWarning');
+
+  function updateChooseTopicsBtnLabel(){
+    if(chooseTopicsBtn) chooseTopicsBtn.textContent = `🎯 Elegir mis temas (${activeTopicKeys.length}/${TOPICS.length})`;
+  }
+
+  function renderTopicsList(){
+    topicsList.innerHTML = '';
+    TOPICS.forEach(t=>{
+      const row = document.createElement('label');
+      row.className = 'topicRow';
+      row.innerHTML = `
+        <input type="checkbox" data-key="${t.key}" ${activeTopicKeys.includes(t.key) ? 'checked' : ''}>
+        <span class="swatchDot" style="background:${t.color}"></span>
+        <span>${t.icon} ${t.name}</span>`;
+      topicsList.appendChild(row);
+    });
+    topicsWarning.style.display = 'none';
+  }
+
+  if(chooseTopicsBtn){
+    chooseTopicsBtn.addEventListener('click', ()=>{
+      renderTopicsList();
+      topicsOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeTopicsBtn').addEventListener('click', ()=>{
+      topicsOverlay.style.display = 'none';
+    });
+    document.getElementById('selectAllTopicsBtn').addEventListener('click', ()=>{
+      topicsList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('selectNoneTopicsBtn').addEventListener('click', ()=>{
+      topicsList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+    document.getElementById('saveTopicsBtn').addEventListener('click', async ()=>{
+      const checked = Array.from(topicsList.querySelectorAll('input[type="checkbox"]:checked')).map(cb=>cb.dataset.key);
+      if(checked.length < 2){
+        topicsWarning.style.display = 'block';
+        return;
+      }
+      activeTopicKeys = checked;
+      await storageSet('active_topics', JSON.stringify(activeTopicKeys));
+      renderWheel();
+      renderLegend();
+      updateChooseTopicsBtnLabel();
+      topicsOverlay.style.display = 'none';
+    });
+  }
+
+  updateChooseTopicsBtnLabel();
+
+  // cargar la selección guardada de sesiones anteriores (si existe)
+  (async function loadActiveTopics(){
+    const raw = await storageGet('active_topics');
+    if(raw){
+      try{
+        const saved = JSON.parse(raw);
+        if(Array.isArray(saved) && saved.length >= 2 && saved.every(k => TOPICS.some(t=>t.key===k))){
+          activeTopicKeys = saved;
+          renderWheel();
+          renderLegend();
+          updateChooseTopicsBtnLabel();
+        }
+      }catch(e){ /* selección guardada corrupta, se ignora */ }
+    }
+  })();
 
   // ---------------- Score ----------------
   const scoreVal = document.getElementById('scoreVal');
@@ -1218,10 +1336,14 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     spinning = true;
     spinBtn.disabled = true;
 
-    const chosenIndex = Math.floor(Math.random()*N);
+    const active = getActiveTopics();
+    const n = active.length;
+    const seg = 360 / n;
+
+    const chosenIndex = Math.floor(Math.random()*n);
     // pointer is at top (angle 0 relative to segment start-based CX,CY at -90deg convention already baked in)
     // we want the chosen segment's middle to end at angle 0 (top) after rotation
-    const segMid = chosenIndex*segAngle + segAngle/2;
+    const segMid = chosenIndex*seg + seg/2;
     const fullSpins = 5 + Math.floor(Math.random()*3); // 5-7 vueltas
     const targetRotation = fullSpins*360 + (360 - segMid);
     currentRotation += targetRotation;
@@ -1230,7 +1352,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     setTimeout(()=>{
       spinning = false;
-      openQuestion(TOPICS[chosenIndex].key);
+      openQuestion(active[chosenIndex].key);
     }, 4600);
   }
 
