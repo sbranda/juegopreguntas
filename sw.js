@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rueda-preguntas-v1';
+const CACHE_NAME = 'rueda-preguntas-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -26,21 +26,26 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // Nunca cachear llamadas a la API de generación de preguntas: siempre deben ir a la red.
-  if (url.includes('api.anthropic.com')) {
+  // Nunca cachear llamadas a las APIs de generación de preguntas: siempre deben ir a la red.
+  if (url.includes('api.anthropic.com') || url.includes('generativelanguage.googleapis.com')) {
     return;
   }
 
+  if (event.request.method !== 'GET') return;
+
+  // Network-first: siempre intenta traer la versión más reciente del servidor.
+  // Solo usa la copia guardada si no hay conexión. Así las actualizaciones
+  // (como agregar nuevos temas) se ven de inmediato en vez de quedar pegadas
+  // a una versión vieja cacheada.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response.ok && event.request.method === 'GET') {
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => cached);
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
