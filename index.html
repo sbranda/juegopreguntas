@@ -994,6 +994,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     return rgb;
   }
 
+  // nombres cortos solo para que quepan en la porción de la rueda (el nombre completo se sigue usando en el resto de la app)
+  const WHEEL_LABEL = {
+    historia:'Historia', ciencia:'Ciencia', geografia:'Geografía', cine:'Cine',
+    deportes:'Deportes', arte:'Arte', musica:'Música', literatura:'Literatura',
+    tecnologia:'Tecnología', gastronomia:'Gastronomía', actualidad:'Actualidad'
+  };
+
   TOPICS.forEach((t, i)=>{
     const startAngle = i*segAngle;
     const endAngle = startAngle+segAngle;
@@ -1008,20 +1015,42 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     svg.appendChild(path);
 
     const midAngle = startAngle + segAngle/2;
-    const labelPos = polarToXY(CX,CY,R*0.62,midAngle);
+    const labelPos = polarToXY(CX,CY,R*0.66,midAngle);
+
+    // Orientación tangencial (como si el texto "abrazara" el círculo). En la mitad
+    // inferior de la rueda esto queda al revés, así que se voltea 180° para que
+    // siempre se lea de corrido, sin importar en qué porción caiga.
+    let rot = midAngle;
+    if(midAngle > 90 && midAngle < 270) rot += 180;
+
     const text = document.createElementNS('http://www.w3.org/2000/svg','text');
     text.setAttribute('x', labelPos.x);
-    text.setAttribute('y', labelPos.y);
     text.setAttribute('text-anchor','middle');
-    text.setAttribute('dominant-baseline','middle');
-    text.setAttribute('font-size','11');
     text.setAttribute('font-weight','800');
     text.setAttribute('fill','#ffffff');
     text.setAttribute('stroke','rgba(0,0,0,0.55)');
-    text.setAttribute('stroke-width','2.5');
+    text.setAttribute('stroke-width','2');
     text.setAttribute('paint-order','stroke');
-    text.setAttribute('transform', `rotate(${midAngle}, ${labelPos.x}, ${labelPos.y})`);
-    text.textContent = t.icon + ' ' + t.name;
+    text.setAttribute('transform', `rotate(${rot}, ${labelPos.x}, ${labelPos.y})`);
+
+    // Ícono y nombre en dos renglones separados (se acomodan en el sentido radial,
+    // por lo que no invaden las porciones vecinas).
+    const tspanIcon = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    tspanIcon.setAttribute('x', labelPos.x);
+    tspanIcon.setAttribute('y', labelPos.y);
+    tspanIcon.setAttribute('dy', '-5.5');
+    tspanIcon.setAttribute('font-size', '13');
+    tspanIcon.textContent = t.icon;
+    text.appendChild(tspanIcon);
+
+    const tspanName = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    tspanName.setAttribute('x', labelPos.x);
+    tspanName.setAttribute('y', labelPos.y);
+    tspanName.setAttribute('dy', '8.5');
+    tspanName.setAttribute('font-size', '8.7');
+    tspanName.textContent = WHEEL_LABEL[t.key] || t.name;
+    text.appendChild(tspanName);
+
     svg.appendChild(text);
   });
 
