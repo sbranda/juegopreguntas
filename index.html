@@ -711,7 +711,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         throw err;
       }
       const data = await response.json();
+      if(data.promptFeedback && data.promptFeedback.blockReason){
+        const err = new Error('Gemini bloqueó la respuesta: ' + data.promptFeedback.blockReason);
+        err.code = 'API_ERROR';
+        throw err;
+      }
       rawText = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || '';
+      if(!rawText){
+        const err = new Error('Gemini no devolvió texto (posible bloqueo de contenido o respuesta vacía).');
+        err.code = 'API_ERROR';
+        throw err;
+      }
     }
 
     const cleaned = rawText.replace(/```json|```/g, '').trim();
@@ -776,9 +786,14 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
             }
             consecutiveFailures++;
             if(consecutiveFailures >= 2){
-              const reason = (e.code === 'API_ERROR' && (e.status === 401 || e.status === 400 || e.status === 403))
-                ? 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.'
-                : 'No se pudo conectar con la IA en este momento.';
+              let reason;
+              if(e.code === 'API_ERROR' && (e.status === 401 || e.status === 400 || e.status === 403)){
+                reason = 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.';
+              } else if(e.code === 'API_ERROR' && e.status === 429){
+                reason = 'Se alcanzó el límite de uso de la API por ahora. Espera un momento y reintenta.';
+              } else {
+                reason = 'Error: ' + (e.message ? e.message.slice(0,180) : 'desconocido');
+              }
               genStatus.textContent = reason;
               stopRequested = true;
               abortedByError = true;
