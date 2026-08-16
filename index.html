@@ -23,17 +23,17 @@
     --good:#4fd68c;
     --bad:#ff5d6c;
 
-    --c-historia:#ef6461;
-    --c-ciencia:#4fb0c6;
-    --c-geografia:#7cc576;
-    --c-cine:#c78ee8;
-    --c-deportes:#ffb84d;
-    --c-arte:#5f9df7;
-    --c-musica:#ff8fab;
-    --c-literatura:#b08968;
-    --c-tecnologia:#64dfdf;
-    --c-gastronomia:#e07a5f;
-    --c-actualidad:#849cc4;
+    --c-historia:#b30317;
+    --c-ciencia:#d20200;
+    --c-geografia:#ea581c;
+    --c-cine:#e9ab34;
+    --c-deportes:#b71daf;
+    --c-arte:#e5013c;
+    --c-musica:#b31470;
+    --c-literatura:#eea602;
+    --c-tecnologia:#2bab34;
+    --c-gastronomia:#6ac720;
+    --c-actualidad:#eadd02;
   }
   *{box-sizing:border-box;}
   html,body{
@@ -1016,7 +1016,10 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     text.setAttribute('dominant-baseline','middle');
     text.setAttribute('font-size','11');
     text.setAttribute('font-weight','800');
-    text.setAttribute('fill','rgba(0,0,0,0.72)');
+    text.setAttribute('fill','#ffffff');
+    text.setAttribute('stroke','rgba(0,0,0,0.55)');
+    text.setAttribute('stroke-width','2.5');
+    text.setAttribute('paint-order','stroke');
     text.setAttribute('transform', `rotate(${midAngle}, ${labelPos.x}, ${labelPos.y})`);
     text.textContent = t.icon + ' ' + t.name;
     svg.appendChild(text);
