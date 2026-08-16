@@ -642,10 +642,10 @@
 
   if(settingsBtn){
     settingsBtn.addEventListener('click', ()=>{
-      settingsOverlay.classList.add('show');
+      settingsOverlay.style.display = 'flex';
       refreshKeyStatus();
     });
-    closeSettingsBtn.addEventListener('click', ()=> settingsOverlay.classList.remove('show'));
+    closeSettingsBtn.addEventListener('click', ()=> settingsOverlay.style.display = 'none');
     saveKeyBtn.addEventListener('click', async ()=>{
       const val = apiKeyInput.value.trim();
       if(val){
@@ -770,7 +770,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
               genStatus.textContent = 'Necesitas agregar tu clave de Gemini para generar preguntas fuera de Claude.ai. Toca el ⚙️.';
               stopRequested = true;
               abortedByError = true;
-              if(settingsOverlay) settingsOverlay.classList.add('show');
+              if(settingsOverlay) settingsOverlay.style.display = 'flex';
               refreshKeyStatus();
               break outer;
             }
