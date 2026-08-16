@@ -692,7 +692,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         err.code = 'NO_API_KEY';
         throw err;
       }
-      const model = 'gemini-2.5-flash';
+      const model = 'gemini-flash-latest'; // alias de Google que siempre apunta al modelo Flash vigente
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
         headers: {
