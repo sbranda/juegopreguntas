@@ -309,7 +309,26 @@
     <h3>Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
     <div id="bankBarTrack"><div id="bankBarFill"></div></div>
     <div id="genStatus">Toca el botón para generar más preguntas con IA hasta llegar a 500.</div>
-    <button id="genBtn">Generar más preguntas (IA)</button>
+    <div style="display:flex; gap:8px;">
+      <button id="genBtn" style="flex:1;">Generar más preguntas (IA)</button>
+      <button id="settingsBtn" title="Configurar clave de API" style="width:44px; flex:none; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:16px;">⚙️</button>
+    </div>
+  </div>
+</div>
+
+<div id="settingsOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%;">
+    <h3 style="margin:0 0 6px; font-size:15px;">Clave de API de Gemini</h3>
+    <p style="font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 14px;">
+      Fuera de Claude.ai, la generación de preguntas usa la API de <b>Gemini</b> (Google AI Studio) directamente desde el navegador.
+      Consíguela en <b>aistudio.google.com</b> → Get API key. Se guarda solo en este dispositivo.
+    </p>
+    <input id="apiKeyInput" type="password" placeholder="AIza..." style="width:100%; padding:10px 12px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px; margin-bottom:10px; box-sizing:border-box;">
+    <p id="keyStatus" style="font-size:11.5px; color:var(--text-dim); margin:0 0 14px;"></p>
+    <div style="display:flex; gap:8px;">
+      <button id="saveKeyBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Guardar clave</button>
+      <button id="closeSettingsBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -539,28 +558,43 @@
     if(tq) tq.textContent = TOTAL_QUESTIONS + ' preguntas en el banco, repartidas en 6 temas × 5 niveles';
   }
 
+  // -------- Almacenamiento: funciona dentro de Claude.ai (window.storage) o como PWA independiente (localStorage) --------
+  const isInsideClaudeArtifact = (typeof window.storage !== 'undefined');
+
+  async function storageGet(key){
+    if(isInsideClaudeArtifact){
+      try{ const r = await window.storage.get(key, false); return r ? r.value : null; }catch(e){ return null; }
+    }
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+  async function storageSet(key, value){
+    if(isInsideClaudeArtifact){
+      try{ await window.storage.set(key, value, false); }catch(e){ console.error(e); }
+      return;
+    }
+    try{ localStorage.setItem(key, value); }catch(e){ console.error(e); }
+  }
+
   // -------- Persistencia: cargar preguntas generadas por IA en sesiones anteriores --------
   async function loadExtras(){
     for(const topic of TOPICS){
       for(let level=1; level<=5; level++){
-        try{
-          const res = await window.storage.get(`extra:${topic.key}:${level}`, false);
-          if(res && res.value){
-            const extra = JSON.parse(res.value);
+        const raw = await storageGet(`extra:${topic.key}:${level}`);
+        if(raw){
+          try{
+            const extra = JSON.parse(raw);
             if(Array.isArray(extra) && extra.length){
               QUESTIONS[topic.key][level] = QUESTIONS[topic.key][level].concat(extra);
             }
-          }
-        }catch(e){ /* aún no hay preguntas extra guardadas para este bucket */ }
+          }catch(e){ /* dato corrupto, se ignora */ }
+        }
       }
     }
     updateBankUI();
   }
 
   async function saveExtras(topicKey, level, extraArr){
-    try{
-      await window.storage.set(`extra:${topicKey}:${level}`, JSON.stringify(extraArr), false);
-    }catch(e){ console.error('No se pudo guardar el progreso del banco:', e); }
+    await storageSet(`extra:${topicKey}:${level}`, JSON.stringify(extraArr));
   }
 
   const state = {};
@@ -586,7 +620,42 @@
   updateBankUI();
   loadExtras();
 
-  // -------- Generación de preguntas nuevas vía API de Claude --------
+  // -------- Configuración de la clave de API (necesaria fuera de Claude.ai) --------
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const keyStatus = document.getElementById('keyStatus');
+
+  async function refreshKeyStatus(){
+    const key = await storageGet('gemini_api_key');
+    if(isInsideClaudeArtifact){
+      keyStatus.textContent = 'Estás dentro de Claude.ai: no necesitas clave, la generación ya funciona.';
+    } else if(key){
+      keyStatus.textContent = 'Clave guardada en este dispositivo. ✅';
+      apiKeyInput.value = key;
+    } else {
+      keyStatus.textContent = 'Sin clave guardada todavía.';
+    }
+  }
+
+  if(settingsBtn){
+    settingsBtn.addEventListener('click', ()=>{
+      settingsOverlay.classList.add('show');
+      refreshKeyStatus();
+    });
+    closeSettingsBtn.addEventListener('click', ()=> settingsOverlay.classList.remove('show'));
+    saveKeyBtn.addEventListener('click', async ()=>{
+      const val = apiKeyInput.value.trim();
+      if(val){
+        await storageSet('gemini_api_key', val);
+        keyStatus.textContent = 'Clave guardada. ✅';
+      }
+    });
+  }
+
+  // -------- Generación de preguntas nuevas: Claude (dentro de Claude.ai) o Gemini (PWA independiente) --------
   async function callClaudeForQuestions(topicName, level, count, existingTexts){
     const prompt = `Genera ${count} preguntas de trivia en español sobre el tema "${topicName}", de dificultad nivel ${level} de 5 (1 = muy fácil, 5 = muy difícil, tipo experto).
 Cada pregunta debe tener 4 opciones de respuesta, solo una correcta.
@@ -594,18 +663,58 @@ No repitas ni te parezcas demasiado a estas preguntas ya existentes: ${existingT
 Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backticks ni markdown, con este formato exacto:
 [{"q":"texto de la pregunta","options":["op1","op2","op3","op4"],"correct":0}]`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    const data = await response.json();
-    const text = (data.content || []).map(b => b.text || '').join('\n');
-    const cleaned = text.replace(/```json|```/g, '').trim();
+    let rawText;
+
+    if(isInsideClaudeArtifact){
+      // Dentro de Claude.ai: la llamada pasa por el proxy interno, sin necesidad de clave.
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      if(!response.ok){
+        const errText = await response.text().catch(()=>'');
+        const err = new Error('API_ERROR ' + response.status + ': ' + errText.slice(0,200));
+        err.code = 'API_ERROR'; err.status = response.status;
+        throw err;
+      }
+      const data = await response.json();
+      rawText = (data.content || []).map(b => b.text || '').join('\n');
+    } else {
+      // PWA independiente: llamada directa a la API de Gemini (Google AI Studio) con la clave del usuario.
+      const apiKey = await storageGet('gemini_api_key');
+      if(!apiKey){
+        const err = new Error('Falta configurar tu clave de API de Gemini.');
+        err.code = 'NO_API_KEY';
+        throw err;
+      }
+      const model = 'gemini-2.5-flash';
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+      if(!response.ok){
+        const errText = await response.text().catch(()=>'');
+        const err = new Error('API_ERROR ' + response.status + ': ' + errText.slice(0,200));
+        err.code = 'API_ERROR'; err.status = response.status;
+        throw err;
+      }
+      const data = await response.json();
+      rawText = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || '';
+    }
+
+    const cleaned = rawText.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     return parsed.filter(q => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length === 4 && Number.isInteger(q.correct));
   }
@@ -631,6 +740,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     genBtn.textContent = 'Detener';
     genBtn.classList.add('stop');
     let consecutiveFailures = 0;
+    let abortedByError = false;
 
     outer:
     for(const topic of TOPICS){
@@ -656,10 +766,22 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
             if(uniqueNew.length === 0) break; // evita loop infinito si la IA no aporta preguntas nuevas
           }catch(e){
             console.error(e);
+            if(e.code === 'NO_API_KEY'){
+              genStatus.textContent = 'Necesitas agregar tu clave de Gemini para generar preguntas fuera de Claude.ai. Toca el ⚙️.';
+              stopRequested = true;
+              abortedByError = true;
+              if(settingsOverlay) settingsOverlay.classList.add('show');
+              refreshKeyStatus();
+              break outer;
+            }
             consecutiveFailures++;
             if(consecutiveFailures >= 2){
-              genStatus.textContent = 'La generación con IA solo está disponible dentro de Claude.ai. Fuera de ahí, el juego funciona igual con las preguntas ya incluidas.';
+              const reason = (e.code === 'API_ERROR' && (e.status === 401 || e.status === 400 || e.status === 403))
+                ? 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.'
+                : 'No se pudo conectar con la IA en este momento.';
+              genStatus.textContent = reason;
               stopRequested = true;
+              abortedByError = true;
               break outer;
             }
             genStatus.textContent = 'Hubo un problema generando preguntas. Reintentando…';
@@ -671,12 +793,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
 
     generating = false;
-    const aiUnavailable = stopRequested && consecutiveFailures >= 2;
+    const hadError = abortedByError;
+    abortedByError = false;
     stopRequested = false;
     genBtn.disabled = false;
     genBtn.textContent = 'Generar más preguntas (IA)';
     genBtn.classList.remove('stop');
-    if(!aiUnavailable){
+    if(!hadError){
       genStatus.textContent = TOTAL_QUESTIONS >= TARGET_TOTAL
         ? `Listo — ${TOTAL_QUESTIONS} preguntas en el banco.`
         : `Pausado en ${TOTAL_QUESTIONS} preguntas. Toca de nuevo para seguir generando.`;
