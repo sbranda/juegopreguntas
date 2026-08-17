@@ -471,7 +471,7 @@
 
 <div id="winOverlay">
   <h2>🎉 ¡Nivel máximo en todo!</h2>
-  <p>Llegaste al nivel 5 en los seis temas. Puedes seguir jugando para sumar más puntos.</p>
+  <p>Llegaste al nivel 15 en todos tus temas. Puedes seguir jugando para sumar más puntos.</p>
   <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
 </div>
 
@@ -884,17 +884,29 @@
   }
 
   const state = {};
-  TOPICS.forEach(t => state[t.key] = 1); // nivel actual por tema (1-5)
+  TOPICS.forEach(t => state[t.key] = 1); // nivel actual por tema (1-15)
   let score = 0;
   let spinning = false;
   let currentTopicKey = null;
   let currentQuestionData = null;
 
+  // -------- Escala de dificultad --------
+  // El jugador avanza por 15 niveles de juego (más progresión, más sensación de logro),
+  // pero el contenido de las preguntas sigue teniendo 5 dificultades reales.
+  // Cada 3 niveles de juego comparten el mismo banco de preguntas de esa dificultad,
+  // así no hace falta escribir contenido único para cada uno de los 15 niveles.
+  const MAX_LEVEL = 15;
+  const LEVELS_PER_TIER = 3; // 15 / 5 dificultades de contenido
+  function contentTier(level){
+    return Math.min(5, Math.max(1, Math.ceil(level / LEVELS_PER_TIER)));
+  }
+
   // usedIndex['topicKey-level'] = Set de índices ya preguntados, para no repetir hasta agotar el pool
   const usedIndex = {};
   function pickQuestion(topicKey, level){
-    const pool = QUESTIONS[topicKey][level];
-    const key = topicKey + '-' + level;
+    const tier = contentTier(level);
+    const pool = QUESTIONS[topicKey][tier];
+    const key = topicKey + '-' + tier;
     if(!usedIndex[key]) usedIndex[key] = new Set();
     if(usedIndex[key].size >= pool.length) usedIndex[key].clear(); // se agotó el pool, reiniciar
     let idx;
@@ -1243,7 +1255,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       const lvl = state[t.key];
       div.innerHTML = `
         <span class="name"><span class="swatch" style="background:${t.color}"></span>${t.icon} ${t.name}</span>
-        <span class="lvl">Nv ${lvl}/5</span>`;
+        <span class="lvl">Nv ${lvl}/${MAX_LEVEL}</span>`;
       legendGrid.appendChild(div);
     });
   }
@@ -1376,7 +1388,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     qTopicTag.textContent = topic.icon + ' ' + topic.name;
     qTopicTag.style.background = topic.color;
     qTopicTag.style.color = 'rgba(0,0,0,0.75)';
-    qLevel.textContent = 'Nivel ' + level + ' / 5';
+    qLevel.textContent = 'Nivel ' + level + ' / ' + MAX_LEVEL;
     qText.textContent = qData.q;
 
     if(qData.image){
@@ -1427,7 +1439,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     if(isCorrect){
       const lvl = state[currentTopicKey];
       score += lvl*10;
-      state[currentTopicKey] = Math.min(5, lvl+1);
+      state[currentTopicKey] = Math.min(MAX_LEVEL, lvl+1);
       feedback.textContent = '¡Correcto! +' + (lvl*10) + ' puntos';
       feedback.className = 'good';
       launchConfetti();
@@ -1449,7 +1461,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   });
 
   function checkWin(){
-    const allMax = TOPICS.every(t => state[t.key] === 5);
+    const allMax = getActiveTopics().every(t => state[t.key] === MAX_LEVEL);
     if(allMax){
       document.getElementById('winOverlay').classList.add('show');
     }
