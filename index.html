@@ -299,6 +299,35 @@
     margin:0 0 18px;
     clear:both;
   }
+  #wildcardsRow{
+    display:flex; gap:6px;
+    margin:0 0 14px;
+  }
+  .wildcardBtn{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:#232332;
+    border:1.5px solid var(--panel-line);
+    color:var(--text-dim);
+    border-radius:9px;
+    padding:7px 4px;
+    font-size:11px; font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .wildcardBtn .wcCount{
+    font-size:10px; font-weight:800; color:var(--accent);
+  }
+  .wildcardBtn:disabled{
+    opacity:0.35; cursor:default;
+  }
+  .wildcardBtn:disabled .wcCount{ color:var(--text-dim); }
+  .wildcardBtn.armed{
+    background:rgba(255,209,102,0.15);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
   .option{
     display:block; width:100%;
     background:#232332;
@@ -553,6 +582,11 @@
     </div>
     <div id="qImage" style="display:none;"></div>
     <p id="qText"></p>
+    <div id="wildcardsRow">
+      <button id="wildcardFifty" class="wildcardBtn" type="button">🎯 50/50<span class="wcCount">3</span></button>
+      <button id="wildcardSkip" class="wildcardBtn" type="button">⏭️ Pasar<span class="wcCount">3</span></button>
+      <button id="wildcardDouble" class="wildcardBtn" type="button">🎲 Doble<span class="wcCount">3</span></button>
+    </div>
     <div id="options"></div>
     <div id="feedback"></div>
     <button id="continueBtn">Continuar</button>
@@ -1224,6 +1258,10 @@
   let players = []; // [{ name, score, state: {topicKey: level} }]
   let currentPlayerIndex = 0;
 
+  // -------- Comodines --------
+  let wildcards = { fifty: 3, skip: 3, double: 3 };
+  function freshWildcards(){ return { fifty: 3, skip: 3, double: 3 }; }
+
   function freshTopicState(){
     const s = {};
     TOPICS.forEach(t => s[t.key] = 1);
@@ -1236,6 +1274,8 @@
     score = p.score;
     Object.keys(state).forEach(k => delete state[k]);
     Object.assign(state, p.state);
+    if(!p.wildcards) p.wildcards = freshWildcards();
+    wildcards = p.wildcards;
   }
 
   function saveCurrentPlayer(){
@@ -1243,6 +1283,7 @@
     const p = players[currentPlayerIndex];
     p.score = score;
     Object.assign(p.state, state);
+    p.wildcards = wildcards;
   }
 
   function renderTurnUI(){
@@ -1331,7 +1372,7 @@
       // si ya había una partida multijugador, guardar antes de reiniciar
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = names.map(name => ({ name, score: 0, state: freshTopicState() }));
+      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards() }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -1348,6 +1389,8 @@
       score = 0;
       Object.keys(state).forEach(k => delete state[k]);
       Object.assign(state, freshTopicState());
+      wildcards = freshWildcards();
+      renderWildcardButtons();
       renderScore();
       renderLegend();
       renderTurnUI();
@@ -1435,8 +1478,9 @@
       score = 0;
       TOPICS.forEach(t => state[t.key] = 1);
       Object.keys(usedIndex).forEach(k => delete usedIndex[k]);
+      wildcards = freshWildcards();
       if(multiplayerEnabled && players.length){
-        players.forEach(p => { p.score = 0; p.state = freshTopicState(); });
+        players.forEach(p => { p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); });
       }
 
       for(const topic of TOPICS){
@@ -1450,6 +1494,7 @@
       renderScore();
       renderLegend();
       renderTurnUI();
+      renderWildcardButtons();
       updateBankUI();
 
       resetArmed = false;
@@ -1966,6 +2011,70 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     answer(-1, currentQuestionData.correct, null);
   }
 
+  // ---------------- Comodines ----------------
+  let fiftyFiftyUsedThisQuestion = false;
+  let doubleOrNothingActive = false;
+
+  const wildcardFiftyBtn = document.getElementById('wildcardFifty');
+  const wildcardSkipBtn = document.getElementById('wildcardSkip');
+  const wildcardDoubleBtn = document.getElementById('wildcardDouble');
+
+  function renderWildcardButtons(){
+    wildcardFiftyBtn.querySelector('.wcCount').textContent = wildcards.fifty;
+    wildcardSkipBtn.querySelector('.wcCount').textContent = wildcards.skip;
+    wildcardDoubleBtn.querySelector('.wcCount').textContent = wildcards.double;
+
+    wildcardFiftyBtn.disabled = wildcards.fifty <= 0 || fiftyFiftyUsedThisQuestion;
+    wildcardSkipBtn.disabled = wildcards.skip <= 0;
+    wildcardDoubleBtn.disabled = wildcards.double <= 0 && !doubleOrNothingActive;
+    wildcardDoubleBtn.classList.toggle('armed', doubleOrNothingActive);
+  }
+
+  wildcardFiftyBtn.addEventListener('click', ()=>{
+    if(wildcards.fifty <= 0 || fiftyFiftyUsedThisQuestion) return;
+    const allBtns = Array.from(optionsDiv.querySelectorAll('.option'));
+    if(!allBtns.length || allBtns[0].disabled) return; // ya se respondió
+    const correctText = currentQuestionData.options[currentQuestionData.correct];
+    const wrongBtns = allBtns.filter(b => b.textContent !== correctText);
+    // elegir 2 incorrectas al azar y ocultarlas
+    for(let i=wrongBtns.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [wrongBtns[i],wrongBtns[j]] = [wrongBtns[j],wrongBtns[i]];
+    }
+    wrongBtns.slice(0,2).forEach(b => { b.style.display = 'none'; });
+
+    wildcards.fifty--;
+    fiftyFiftyUsedThisQuestion = true;
+    renderWildcardButtons();
+  });
+
+  wildcardSkipBtn.addEventListener('click', ()=>{
+    if(wildcards.skip <= 0) return;
+    const allBtns = optionsDiv.querySelectorAll('.option');
+    if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
+
+    wildcards.skip--;
+    stopTimer();
+    modalOverlay.classList.remove('show');
+    spinBtn.disabled = false;
+    // pasar no cuenta como respuesta: no cambia puntaje, nivel ni turno
+  });
+
+  wildcardDoubleBtn.addEventListener('click', ()=>{
+    const allBtns = optionsDiv.querySelectorAll('.option');
+    if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
+
+    if(!doubleOrNothingActive){
+      if(wildcards.double <= 0) return;
+      wildcards.double--;
+      doubleOrNothingActive = true;
+    } else {
+      wildcards.double++;
+      doubleOrNothingActive = false;
+    }
+    renderWildcardButtons();
+  });
+
   function openQuestion(topicKey){
     currentTopicKey = topicKey;
     const topic = TOPICS.find(t=>t.key===topicKey);
@@ -1991,6 +2100,11 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     feedback.textContent = '';
     feedback.className = '';
     continueBtn.style.display = 'none';
+
+    // reset de comodines para esta pregunta
+    fiftyFiftyUsedThisQuestion = false;
+    doubleOrNothingActive = false;
+    renderWildcardButtons();
 
     const order = qData.options.map((opt,idx)=>({opt,idx}));
     // keep original order for simplicity/predictability across replays; shuffle lightly
@@ -2021,6 +2135,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     stopTimer();
     const allBtns = optionsDiv.querySelectorAll('.option');
     allBtns.forEach(b=>b.disabled = true);
+    document.querySelectorAll('.wildcardBtn').forEach(b=>b.disabled = true);
 
     const isCorrect = selectedIdx === correctIdx;
     allBtns.forEach(b=>{
@@ -2032,18 +2147,28 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       btnEl.classList.add('wrong');
     }
 
+    const lvl = state[currentTopicKey];
     if(isCorrect){
-      const lvl = state[currentTopicKey];
-      score += lvl*10;
+      const basePts = lvl*10;
+      const pts = doubleOrNothingActive ? basePts*2 : basePts;
+      score += pts;
       state[currentTopicKey] = Math.min(MAX_LEVEL, lvl+1);
-      feedback.textContent = '¡Correcto! +' + (lvl*10) + ' puntos';
+      feedback.textContent = doubleOrNothingActive
+        ? '🎲 ¡Correcto, doble o nada pagó! +' + pts + ' puntos'
+        : '¡Correcto! +' + pts + ' puntos';
       feedback.className = 'good';
       launchConfetti();
     } else {
       state[currentTopicKey] = Math.max(1, state[currentTopicKey]-1);
-      feedback.textContent = (selectedIdx === -1)
-        ? '⏱️ ¡Se acabó el tiempo! El nivel de este tema baja un poco.'
-        : 'No era esa. El nivel de este tema baja un poco.';
+      if(doubleOrNothingActive){
+        const penalty = Math.min(score, lvl*10);
+        score -= penalty;
+        feedback.textContent = '🎲 No era esa. El doble o nada te costó ' + penalty + ' puntos extra.';
+      } else {
+        feedback.textContent = (selectedIdx === -1)
+          ? '⏱️ ¡Se acabó el tiempo! El nivel de este tema baja un poco.'
+          : 'No era esa. El nivel de este tema baja un poco.';
+      }
       feedback.className = 'bad';
     }
 
