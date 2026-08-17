@@ -600,6 +600,7 @@
     <button id="statsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📊 Estadísticas</button>
     <button id="achievementsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏅 Logros</button>
     <button id="dailyBtn" style="background:transparent; border:1.5px solid var(--accent); color:var(--accent); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📅 Desafío diario</button>
+    <button id="shareBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📤 Compartir</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -712,6 +713,22 @@
   </div>
 </div>
 
+<div id="shareOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:88vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 12px; font-size:15px;">Compartir tu puntaje</h3>
+    <div style="overflow-y:auto; flex:1; margin-bottom:12px;">
+      <canvas id="shareCanvas" style="width:100%; height:auto; border-radius:12px; display:block;"></canvas>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+      <button id="shareNativeBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Compartir imagen</button>
+      <button id="downloadShareBtn" style="flex:none; padding:11px 14px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">⬇️</button>
+    </div>
+    <button id="copyTextBtn" style="width:100%; margin-bottom:8px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Copiar como texto</button>
+    <p id="shareCopyStatus" style="font-size:11.5px; color:var(--good); text-align:center; margin:0 0 8px; display:none;">Copiado al portapapeles ✅</p>
+    <button id="closeShareBtn" style="padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
 <div id="modalOverlay">
   <div id="qCard">
     <span id="qLevel"></span>
@@ -736,7 +753,10 @@
 <div id="winOverlay">
   <h2>🎉 ¡Nivel máximo en todo!</h2>
   <p><span id="winnerName">Llegaste</span> al nivel 15 en todos tus temas. Puedes seguir jugando para sumar más puntos.</p>
-  <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
+  <div style="display:flex; gap:8px;">
+    <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
+    <button id="shareFromWinBtn" style="background:transparent;border:1.5px solid var(--accent);color:var(--accent);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">📤 Compartir</button>
+  </div>
 </div>
 
 <script>
@@ -1673,6 +1693,163 @@
       dailyOverlay.style.display = 'none';
     });
   }
+
+  // -------- Compartir puntaje --------
+  const shareBtn = document.getElementById('shareBtn');
+  const shareFromWinBtn = document.getElementById('shareFromWinBtn');
+  const shareOverlay = document.getElementById('shareOverlay');
+  const shareCanvas = document.getElementById('shareCanvas');
+  const shareNativeBtn = document.getElementById('shareNativeBtn');
+  const downloadShareBtn = document.getElementById('downloadShareBtn');
+  const copyTextBtn = document.getElementById('copyTextBtn');
+  const shareCopyStatus = document.getElementById('shareCopyStatus');
+
+  function roundRectPath(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function currentPlayerLabel(){
+    return (multiplayerEnabled && players.length) ? players[currentPlayerIndex].name : 'Modo individual';
+  }
+
+  function buildShareText(){
+    const who = (multiplayerEnabled && players.length) ? players[currentPlayerIndex].name + ' — ' : '';
+    return [
+      '🎡 ' + who + 'Rueda de Preguntas',
+      '🏆 ' + score + ' puntos',
+      '🔥 Mejor racha: ' + stats.bestStreak,
+      '🏅 Logros: ' + achievements.length + '/' + ALL_ACHIEVEMENTS.length,
+    ].join('\n');
+  }
+
+  async function renderShareCard(){
+    if(document.fonts && document.fonts.ready){
+      try{ await document.fonts.ready; }catch(e){}
+    }
+    const W = 900, H = 1125;
+    shareCanvas.width = W; shareCanvas.height = H;
+    const ctx = shareCanvas.getContext('2d');
+
+    const bgGrad = ctx.createLinearGradient(0,0,0,H);
+    bgGrad.addColorStop(0, '#2a1a3d');
+    bgGrad.addColorStop(1, '#150f22');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0,0,W,H);
+
+    const colors = ['#b30317','#d20200','#ea581c','#e9ab34','#b71daf','#e5013c','#b31470','#eea602','#2bab34','#6ac720','#eadd02'];
+    const stripeH = 20;
+    const segW = W/colors.length;
+    colors.forEach((c,i)=>{ ctx.fillStyle = c; ctx.fillRect(i*segW, 0, segW+1, stripeH); ctx.fillRect(i*segW, H-stripeH, segW+1, stripeH); });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd166';
+    ctx.font = '700 46px "Baloo 2", sans-serif';
+    ctx.fillText('🎡 Rueda de Preguntas', W/2, 130);
+
+    ctx.fillStyle = '#a89bc0';
+    ctx.font = '700 26px "Nunito", sans-serif';
+    ctx.fillText(currentPlayerLabel(), W/2, 172);
+
+    ctx.fillStyle = '#fbf6ea';
+    ctx.font = '800 140px "Baloo 2", sans-serif';
+    ctx.fillText(String(score), W/2, 400);
+    ctx.fillStyle = '#a89bc0';
+    ctx.font = '700 26px "Nunito", sans-serif';
+    ctx.fillText('PUNTOS', W/2, 445);
+
+    function statCard(x, icon, value, label){
+      const cw = 380, ch = 170, cy = 520;
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      roundRectPath(ctx, x, cy, cw, ch, 18); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,209,102,0.4)'; ctx.lineWidth = 2;
+      roundRectPath(ctx, x, cy, cw, ch, 18); ctx.stroke();
+      ctx.fillStyle = '#ffd166';
+      ctx.font = '700 56px "Baloo 2", sans-serif';
+      ctx.fillText(icon + ' ' + value, x + cw/2, cy + 85);
+      ctx.fillStyle = '#a89bc0';
+      ctx.font = '700 20px "Nunito", sans-serif';
+      ctx.fillText(label, x + cw/2, cy + 128);
+    }
+    statCard(60, '🔥', stats.bestStreak, 'MEJOR RACHA');
+    statCard(460, '🏅', achievements.length + '/' + ALL_ACHIEVEMENTS.length, 'LOGROS');
+
+    const overallPct = stats.total ? Math.round((stats.correct/stats.total)*100) : 0;
+    ctx.fillStyle = '#a89bc0';
+    ctx.font = '700 24px "Nunito", sans-serif';
+    ctx.fillText(overallPct + '% de aciertos · ' + stats.total + ' preguntas respondidas', W/2, 760);
+
+    ctx.fillStyle = '#6a5f80';
+    ctx.font = '600 20px "Nunito", sans-serif';
+    ctx.fillText(new Date().toLocaleDateString('es-AR', { day:'numeric', month:'long', year:'numeric' }), W/2, H-55);
+  }
+
+  function canvasToBlob(){
+    return new Promise(resolve => shareCanvas.toBlob(resolve, 'image/png'));
+  }
+
+  async function openShare(){
+    await renderShareCard();
+    shareCopyStatus.style.display = 'none';
+    shareOverlay.style.display = 'flex';
+  }
+
+  if(shareBtn) shareBtn.addEventListener('click', openShare);
+  if(shareFromWinBtn) shareFromWinBtn.addEventListener('click', openShare);
+
+  document.getElementById('closeShareBtn').addEventListener('click', ()=>{
+    shareOverlay.style.display = 'none';
+  });
+
+  shareNativeBtn.addEventListener('click', async ()=>{
+    const blob = await canvasToBlob();
+    if(!blob) return;
+    const file = new File([blob], 'rueda-de-preguntas.png', { type:'image/png' });
+    const text = buildShareText();
+    try{
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        await navigator.share({ files:[file], text, title:'Rueda de Preguntas' });
+        return;
+      }
+      if(navigator.share){
+        await navigator.share({ text, title:'Rueda de Preguntas' });
+        return;
+      }
+    }catch(e){
+      return; // el usuario canceló el share nativo, no hacer nada más
+    }
+    // sin soporte para compartir: descargar la imagen como alternativa
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'rueda-de-preguntas.png'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  downloadShareBtn.addEventListener('click', async ()=>{
+    const blob = await canvasToBlob();
+    if(!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'rueda-de-preguntas.png'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  copyTextBtn.addEventListener('click', async ()=>{
+    const text = buildShareText();
+    try{
+      await navigator.clipboard.writeText(text);
+      shareCopyStatus.style.display = 'block';
+      setTimeout(()=>{ shareCopyStatus.style.display = 'none'; }, 2500);
+    }catch(e){
+      shareCopyStatus.textContent = text;
+      shareCopyStatus.style.display = 'block';
+    }
+  });
 
   function loadCurrentPlayer(){
     if(!multiplayerEnabled || !players.length) return;
