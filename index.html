@@ -564,6 +564,23 @@
     text-align:center; padding:18px 6px;
   }
   .dailyDone .bigIcon{ font-size:40px; display:block; margin-bottom:8px; }
+
+  .lbRow{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 6px; border-bottom:1px solid var(--panel-line);
+    font-size:13px;
+  }
+  .lbRow:last-child{ border-bottom:none; }
+  .lbRow .lbRank{
+    width:26px; flex:none; font-weight:800; text-align:center;
+    font-family:var(--font-display); color:var(--text-dim);
+  }
+  .lbRow.top1 .lbRank{ color:#ffd166; }
+  .lbRow.top2 .lbRank{ color:#d8d8e0; }
+  .lbRow.top3 .lbRank{ color:#e0a05a; }
+  .lbRow .lbName{ flex:1; font-weight:700; }
+  .lbRow .lbScore{ flex:none; font-weight:800; color:var(--accent); }
+  .lbRow.me{ background:rgba(255,209,102,0.08); border-radius:8px; }
 </style>
 </head>
 <body>
@@ -601,6 +618,7 @@
     <button id="achievementsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏅 Logros</button>
     <button id="dailyBtn" style="background:transparent; border:1.5px solid var(--accent); color:var(--accent); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📅 Desafío diario</button>
     <button id="shareBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📤 Compartir</button>
+    <button id="leaderboardBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏆 Posiciones</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -633,7 +651,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, el nivel de cada tema y las preguntas generadas por IA. Tu clave y los temas favoritos no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros y el desafío diario</b>. Tu clave, los temas favoritos y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -726,6 +744,39 @@
     <button id="copyTextBtn" style="width:100%; margin-bottom:8px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Copiar como texto</button>
     <p id="shareCopyStatus" style="font-size:11.5px; color:var(--good); text-align:center; margin:0 0 8px; display:none;">Copiado al portapapeles ✅</p>
     <button id="closeShareBtn" style="padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="leaderboardOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:400px; width:100%; max-height:88vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 6px; font-size:15px;">🏆 Tabla de posiciones</h3>
+
+    <div id="lbSetupView" style="display:none; overflow-y:auto;">
+      <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 12px;">
+        Para compartir la tabla entre varios dispositivos hace falta una base de datos gratuita (Firebase). Pasos:
+      </p>
+      <ol style="font-size:11.5px; color:var(--text-dim); line-height:1.7; margin:0 0 12px; padding-left:18px;">
+        <li>Entrá a <b>console.firebase.google.com</b> y creá un proyecto (gratis)</li>
+        <li><b>Compilación → Firestore Database</b> → crear base de datos → modo de prueba</li>
+        <li>⚙️ Configuración del proyecto → <b>Tus apps</b> → agregar app web (ícono &lt;/&gt;)</li>
+        <li>Copiá el objeto <code>firebaseConfig</code> que te muestra y pegalo abajo</li>
+      </ol>
+      <textarea id="firebaseConfigInput" placeholder='{"apiKey":"...", "authDomain":"...", "projectId":"...", ...}' style="width:100%; height:110px; padding:10px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:11.5px; font-family:monospace; box-sizing:border-box; margin-bottom:8px;"></textarea>
+      <p id="lbSetupStatus" style="font-size:11.5px; color:var(--bad); margin:0 0 10px; display:none;"></p>
+      <button id="saveFirebaseConfigBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Guardar y conectar</button>
+    </div>
+
+    <div id="lbListView" style="display:none; flex-direction:column; flex:1; min-height:0;">
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button id="submitScoreBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:10px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">Subir mi puntaje</button>
+        <button id="refreshLbBtn" style="flex:none; width:40px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer;">🔄</button>
+      </div>
+      <p id="lbStatus" style="font-size:11.5px; color:var(--text-dim); margin:0 0 8px;"></p>
+      <div id="lbList" style="overflow-y:auto; flex:1;"></div>
+      <button id="lbChangeConfigBtn" style="margin-top:10px; background:transparent; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline;">⚙️ Cambiar configuración</button>
+    </div>
+
+    <button id="closeLeaderboardBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -1851,6 +1902,179 @@
     }
   });
 
+  // -------- Tabla de posiciones (Firebase, guardado compartido) --------
+  const leaderboardBtn = document.getElementById('leaderboardBtn');
+  const leaderboardOverlay = document.getElementById('leaderboardOverlay');
+  const lbSetupView = document.getElementById('lbSetupView');
+  const lbListView = document.getElementById('lbListView');
+  const firebaseConfigInput = document.getElementById('firebaseConfigInput');
+  const lbSetupStatus = document.getElementById('lbSetupStatus');
+  const saveFirebaseConfigBtn = document.getElementById('saveFirebaseConfigBtn');
+  const submitScoreBtn = document.getElementById('submitScoreBtn');
+  const refreshLbBtn = document.getElementById('refreshLbBtn');
+  const lbStatus = document.getElementById('lbStatus');
+  const lbList = document.getElementById('lbList');
+  const lbChangeConfigBtn = document.getElementById('lbChangeConfigBtn');
+  const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+
+  let fbHandles = null; // { db, collection, addDoc, getDocs, query, orderBy, limit }
+
+  function parseFirebaseConfigInput(raw){
+    let t = raw.trim();
+    t = t.replace(/^\s*(export\s+default|const|let|var)\s+\w*\s*=?\s*/,'');
+    t = t.replace(/;\s*$/,'');
+    try{ return new Function('return (' + t + ')')(); }
+    catch(e){ return null; }
+  }
+
+  async function ensureFirebase(config){
+    if(fbHandles) return fbHandles;
+    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+    const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const app = appMod.initializeApp(config);
+    const db = fsMod.getFirestore(app);
+    fbHandles = {
+      db,
+      collection: fsMod.collection,
+      addDoc: fsMod.addDoc,
+      getDocs: fsMod.getDocs,
+      query: fsMod.query,
+      orderBy: fsMod.orderBy,
+      limit: fsMod.limit,
+    };
+    return fbHandles;
+  }
+
+  async function getSavedFirebaseConfig(){
+    const raw = await storageGet('firebase_config');
+    if(!raw) return null;
+    try{ return JSON.parse(raw); }catch(e){ return null; }
+  }
+
+  async function openLeaderboard(){
+    leaderboardOverlay.style.display = 'flex';
+    const config = await getSavedFirebaseConfig();
+    if(!config){
+      lbSetupView.style.display = 'block';
+      lbListView.style.display = 'none';
+      return;
+    }
+    lbSetupView.style.display = 'none';
+    lbListView.style.display = 'flex';
+    await refreshLeaderboard(config);
+  }
+
+  async function refreshLeaderboard(config){
+    lbStatus.textContent = 'Cargando…';
+    lbList.innerHTML = '';
+    try{
+      const fb = await ensureFirebase(config || await getSavedFirebaseConfig());
+      const q = fb.query(
+        fb.collection(fb.db, 'rueda_preguntas_scores'),
+        fb.orderBy('score', 'desc'),
+        fb.limit(20)
+      );
+      const snap = await fb.getDocs(q);
+      const rows = [];
+      snap.forEach(doc => rows.push(doc.data()));
+
+      if(!rows.length){
+        lbStatus.textContent = 'Todavía nadie subió su puntaje. ¡Sé el primero!';
+        return;
+      }
+      lbStatus.textContent = 'Mejores puntajes compartidos:';
+      const myName = multiplayerEnabled ? currentPlayerLabel() : ((await storageGet('player_name')) || currentPlayerLabel());
+      rows.forEach((r, i)=>{
+        const row = document.createElement('div');
+        const isMe = r.name === myName && r.score === score;
+        row.className = 'lbRow' + (i===0?' top1':i===1?' top2':i===2?' top3':'') + (isMe ? ' me' : '');
+        row.innerHTML = `
+          <span class="lbRank">${i+1}</span>
+          <span class="lbName">${(r.name||'Jugador').slice(0,24)}</span>
+          <span class="lbScore">${r.score}</span>`;
+        lbList.appendChild(row);
+      });
+    }catch(e){
+      console.error(e);
+      lbStatus.textContent = 'No se pudo conectar con la base de datos. Revisá la configuración (⚙️ abajo).';
+    }
+  }
+
+  if(leaderboardBtn){
+    leaderboardBtn.addEventListener('click', openLeaderboard);
+    closeLeaderboardBtn.addEventListener('click', ()=>{ leaderboardOverlay.style.display = 'none'; });
+
+    saveFirebaseConfigBtn.addEventListener('click', async ()=>{
+      const parsed = parseFirebaseConfigInput(firebaseConfigInput.value);
+      if(!parsed || !parsed.apiKey || !parsed.projectId){
+        lbSetupStatus.textContent = 'No se pudo leer esa configuración. Revisá que sea el objeto firebaseConfig completo.';
+        lbSetupStatus.style.display = 'block';
+        return;
+      }
+      lbSetupStatus.style.display = 'none';
+      saveFirebaseConfigBtn.disabled = true;
+      saveFirebaseConfigBtn.textContent = 'Conectando…';
+      try{
+        fbHandles = null;
+        await ensureFirebase(parsed);
+        await storageSet('firebase_config', JSON.stringify(parsed));
+        lbSetupView.style.display = 'none';
+        lbListView.style.display = 'flex';
+        await refreshLeaderboard(parsed);
+      }catch(e){
+        console.error(e);
+        lbSetupStatus.textContent = 'No se pudo conectar. Revisá que la configuración sea correcta y que Firestore esté activado.';
+        lbSetupStatus.style.display = 'block';
+      }
+      saveFirebaseConfigBtn.disabled = false;
+      saveFirebaseConfigBtn.textContent = 'Guardar y conectar';
+    });
+
+    submitScoreBtn.addEventListener('click', async ()=>{
+      const config = await getSavedFirebaseConfig();
+      if(!config) return;
+
+      let name = currentPlayerLabel();
+      if(!multiplayerEnabled){
+        name = await storageGet('player_name');
+        if(!name){
+          name = (window.prompt('¿Con qué nombre querés aparecer en la tabla de posiciones?', '') || '').trim().slice(0,24);
+          if(!name) return;
+          await storageSet('player_name', name);
+        }
+      }
+
+      submitScoreBtn.disabled = true;
+      submitScoreBtn.textContent = 'Subiendo…';
+      try{
+        const fb = await ensureFirebase(config);
+        await fb.addDoc(fb.collection(fb.db, 'rueda_preguntas_scores'), {
+          name: name,
+          score: score,
+          ts: Date.now()
+        });
+        await refreshLeaderboard(config);
+      }catch(e){
+        console.error(e);
+        lbStatus.textContent = 'No se pudo subir tu puntaje. Intentá de nuevo.';
+      }
+      submitScoreBtn.disabled = false;
+      submitScoreBtn.textContent = 'Subir mi puntaje';
+    });
+
+    refreshLbBtn.addEventListener('click', async ()=>{
+      const config = await getSavedFirebaseConfig();
+      if(config) refreshLeaderboard(config);
+    });
+
+    lbChangeConfigBtn.addEventListener('click', ()=>{
+      lbListView.style.display = 'none';
+      lbSetupView.style.display = 'block';
+      firebaseConfigInput.value = '';
+      lbSetupStatus.style.display = 'none';
+    });
+  }
+
   function loadCurrentPlayer(){
     if(!multiplayerEnabled || !players.length) return;
     const p = players[currentPlayerIndex];
@@ -2077,8 +2301,24 @@
       Object.keys(usedIndex).forEach(k => delete usedIndex[k]);
       wildcards = freshWildcards();
       streak = 0;
+
+      // estadísticas y logros: reiniciar el objeto en solitario en el lugar (misma referencia)
+      // para que "stats"/"achievements" (que pueden estar apuntando a soloStats/soloAchievements)
+      // queden reflejados sin reasignar variables const.
+      const zeroed = freshStats();
+      soloStats.correct = 0; soloStats.total = 0; soloStats.bestStreak = 0;
+      TOPICS.forEach(t => soloStats.perTopic[t.key] = { correct:0, total:0 });
+      soloAchievements.length = 0;
+      await storageDelete('stats_solo');
+      await storageDelete('achievements_solo');
+      await storageDelete('daily_last_played');
+      await storageDelete('daily_streak');
+
       if(multiplayerEnabled && players.length){
-        players.forEach(p => { p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); p.streak = 0; });
+        players.forEach(p => {
+          p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); p.streak = 0;
+          p.stats = freshStats(); p.achievements = [];
+        });
       }
 
       for(const topic of TOPICS){
