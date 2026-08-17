@@ -259,6 +259,27 @@
     float:right;
     font-size:11px; color:var(--text-dim); font-weight:700;
   }
+  #qTimerWrap{
+    clear:both;
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:12px;
+  }
+  #qTimerTrack{
+    flex:1; height:8px; border-radius:5px;
+    background:#2a2a3c; overflow:hidden;
+  }
+  #qTimerFill{
+    height:100%; width:100%;
+    background:var(--good);
+    border-radius:5px;
+    transition:width 0.1s linear, background 0.3s ease;
+  }
+  #qTimerFill.warn{ background:var(--accent-2); }
+  #qTimerFill.danger{ background:var(--bad); }
+  #qTimerLabel{
+    font-size:12px; font-weight:800; color:var(--text-dim); min-width:28px; text-align:right; flex:none;
+  }
+  #qTimerLabel.danger{ color:var(--bad); }
   #qImage{
     clear:both;
     width:100%;
@@ -407,7 +428,10 @@
   </div>
 
   <button id="spinBtn">Girar la rueda</button>
-  <button id="chooseTopicsBtn" style="margin-top:10px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
+  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; justify-content:center;">
+    <button id="chooseTopicsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
+    <button id="timerModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">⏱️ Contrarreloj: Desactivado</button>
+  </div>
 
   <div id="legendGrid"></div>
 
@@ -470,6 +494,10 @@
   <div id="qCard">
     <span id="qLevel"></span>
     <div id="qTopicTag"></div>
+    <div id="qTimerWrap" style="display:none;">
+      <div id="qTimerTrack"><div id="qTimerFill"></div></div>
+      <span id="qTimerLabel">15s</span>
+    </div>
     <div id="qImage" style="display:none;"></div>
     <p id="qText"></p>
     <div id="options"></div>
@@ -1670,6 +1698,79 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   const feedback = document.getElementById('feedback');
   const continueBtn = document.getElementById('continueBtn');
 
+  // ---------------- Modo contrarreloj ----------------
+  const TIMER_SECONDS = 15;
+  const timerModeBtn = document.getElementById('timerModeBtn');
+  const qTimerWrap = document.getElementById('qTimerWrap');
+  const qTimerFill = document.getElementById('qTimerFill');
+  const qTimerLabel = document.getElementById('qTimerLabel');
+  let timerModeEnabled = false;
+  let timerRAF = null;
+  let timerStart = 0;
+
+  function updateTimerBtnLabel(){
+    if(timerModeBtn) timerModeBtn.textContent = '⏱️ Contrarreloj: ' + (timerModeEnabled ? 'Activado' : 'Desactivado');
+  }
+
+  if(timerModeBtn){
+    timerModeBtn.addEventListener('click', async ()=>{
+      timerModeEnabled = !timerModeEnabled;
+      updateTimerBtnLabel();
+      await storageSet('timer_mode', timerModeEnabled ? 'on' : 'off');
+    });
+  }
+  (async function loadTimerMode(){
+    const saved = await storageGet('timer_mode');
+    if(saved === 'on'){
+      timerModeEnabled = true;
+      updateTimerBtnLabel();
+    }
+  })();
+
+  function stopTimer(){
+    if(timerRAF){ cancelAnimationFrame(timerRAF); timerRAF = null; }
+  }
+
+  function startTimer(){
+    stopTimer();
+    qTimerWrap.style.display = 'flex';
+    timerStart = performance.now();
+    qTimerFill.style.width = '100%';
+    qTimerFill.className = '';
+    qTimerLabel.className = '';
+    qTimerLabel.textContent = TIMER_SECONDS + 's';
+
+    function tick(now){
+      const elapsed = (now - timerStart) / 1000;
+      const remaining = Math.max(0, TIMER_SECONDS - elapsed);
+      const pct = (remaining / TIMER_SECONDS) * 100;
+      qTimerFill.style.width = pct + '%';
+      qTimerLabel.textContent = Math.ceil(remaining) + 's';
+
+      if(remaining <= TIMER_SECONDS * 0.33){
+        qTimerFill.className = 'danger';
+        qTimerLabel.className = 'danger';
+      } else if(remaining <= TIMER_SECONDS * 0.6){
+        qTimerFill.className = 'warn';
+      }
+
+      if(remaining <= 0){
+        stopTimer();
+        timeUp();
+        return;
+      }
+      timerRAF = requestAnimationFrame(tick);
+    }
+    timerRAF = requestAnimationFrame(tick);
+  }
+
+  function timeUp(){
+    // se acabó el tiempo sin responder: cuenta como incorrecto
+    const allBtns = optionsDiv.querySelectorAll('.option');
+    if(allBtns.length && allBtns[0].disabled) return; // ya se había respondido
+    answer(-1, currentQuestionData.correct, null);
+  }
+
   function openQuestion(topicKey){
     currentTopicKey = topicKey;
     const topic = TOPICS.find(t=>t.key===topicKey);
@@ -1712,9 +1813,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     });
 
     modalOverlay.classList.add('show');
+
+    if(timerModeEnabled){
+      startTimer();
+    } else {
+      stopTimer();
+      qTimerWrap.style.display = 'none';
+    }
   }
 
   function answer(selectedIdx, correctIdx, btnEl){
+    stopTimer();
     const allBtns = optionsDiv.querySelectorAll('.option');
     allBtns.forEach(b=>b.disabled = true);
 
@@ -1724,7 +1833,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         b.classList.add('correct');
       }
     });
-    if(!isCorrect){
+    if(!isCorrect && btnEl){
       btnEl.classList.add('wrong');
     }
 
@@ -1737,7 +1846,9 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       launchConfetti();
     } else {
       state[currentTopicKey] = Math.max(1, state[currentTopicKey]-1);
-      feedback.textContent = 'No era esa. El nivel de este tema baja un poco.';
+      feedback.textContent = (selectedIdx === -1)
+        ? '⏱️ ¡Se acabó el tiempo! El nivel de este tema baja un poco.'
+        : 'No era esa. El nivel de este tema baja un poco.';
       feedback.className = 'bad';
     }
 
@@ -1747,6 +1858,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   }
 
   continueBtn.addEventListener('click', ()=>{
+    stopTimer();
     modalOverlay.classList.remove('show');
     spinBtn.disabled = false;
     checkWin();
