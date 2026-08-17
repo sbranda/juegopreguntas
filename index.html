@@ -2915,7 +2915,10 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       void wheelResultLabel.offsetWidth;
       wheelResultLabel.style.animation = '';
 
-      openQuestion(chosenTopic.key);
+      // pausa de 2s mostrando el resultado en la rueda antes de abrir la pregunta
+      setTimeout(()=>{
+        openQuestion(chosenTopic.key);
+      }, 2000);
     }, 4600);
   }
 
