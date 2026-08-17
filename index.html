@@ -205,6 +205,25 @@
   }
   .seg-dot.on{ background:rgba(0,0,0,0.75); }
 
+  #wheelResultLabel{
+    font-family: var(--font-display);
+    font-size:17px; font-weight:700;
+    padding:8px 22px; border-radius:22px;
+    margin-bottom:14px;
+    border:2px solid var(--accent);
+    background:rgba(255,209,102,0.12);
+    color:var(--text);
+    display:flex; align-items:center; gap:8px;
+    animation: resultPop 0.4s cubic-bezier(.2,.9,.3,1.4);
+  }
+  @keyframes resultPop{
+    0%{ transform:scale(0.6); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #wheelResultLabel{ animation:none; }
+  }
+
   #spinBtn{
     background:linear-gradient(135deg, #ffe08a, var(--accent) 55%, var(--accent-2));
     color:#1a1608;
@@ -616,6 +635,8 @@
       <svg id="wheel" viewBox="0 0 300 300" width="300" height="300" style="width:100%;height:100%;display:block;"></svg>
     </div>
   </div>
+
+  <div id="wheelResultLabel" style="display:none;"></div>
 
   <button id="spinBtn">Girar la rueda</button>
   <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; justify-content:center;">
@@ -2865,6 +2886,9 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     spinning = true;
     spinBtn.disabled = true;
 
+    const wheelResultLabel = document.getElementById('wheelResultLabel');
+    wheelResultLabel.style.display = 'none';
+
     const active = getActiveTopics();
     const n = active.length;
     const seg = 360 / n;
@@ -2881,7 +2905,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     setTimeout(()=>{
       spinning = false;
-      openQuestion(active[chosenIndex].key);
+      const chosenTopic = active[chosenIndex];
+
+      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span>';
+      wheelResultLabel.style.borderColor = chosenTopic.color;
+      wheelResultLabel.style.display = 'flex';
+      // reinicia la animación de aparición
+      wheelResultLabel.style.animation = 'none';
+      void wheelResultLabel.offsetWidth;
+      wheelResultLabel.style.animation = '';
+
+      openQuestion(chosenTopic.key);
     }, 4600);
   }
 
