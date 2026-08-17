@@ -2898,8 +2898,15 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     // we want the chosen segment's middle to end at angle 0 (top) after rotation
     const segMid = chosenIndex*seg + seg/2;
     const fullSpins = 5 + Math.floor(Math.random()*3); // 5-7 vueltas
-    const targetRotation = fullSpins*360 + (360 - segMid);
-    currentRotation += targetRotation;
+
+    // La rotación es acumulativa (currentRotation ya trae lo girado en vueltas anteriores),
+    // así que el incremento necesario tiene que calcularse a partir de dónde quedó la rueda
+    // realmente ahora, no como si arrancara siempre desde 0. Si no, el error se va acumulando
+    // giro tras giro.
+    const currentMod = ((currentRotation % 360) + 360) % 360;
+    const finalMod = ((360 - segMid) % 360 + 360) % 360;
+    const delta = fullSpins*360 + ((finalMod - currentMod + 360) % 360);
+    currentRotation += delta;
 
     wheel.style.transform = `rotate(${currentRotation}deg)`;
 
