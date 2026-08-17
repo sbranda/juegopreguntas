@@ -480,6 +480,34 @@
     border-color:var(--accent);
     color:var(--accent);
   }
+
+  .statSummaryCard{
+    flex:1; text-align:center;
+    background:#1a1428; border:1px solid var(--panel-line);
+    border-radius:10px; padding:12px 8px;
+  }
+  .statSummaryCard .big{
+    font-family:var(--font-display);
+    font-size:22px; font-weight:700; color:var(--accent);
+    display:block;
+  }
+  .statSummaryCard .lbl{
+    font-size:10.5px; color:var(--text-dim);
+  }
+  .statTopicRow{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 4px; border-bottom:1px solid var(--panel-line);
+    font-size:12.5px;
+  }
+  .statTopicRow:last-child{ border-bottom:none; }
+  .statTopicRow .stName{
+    flex:1; font-weight:700; display:flex; align-items:center; gap:6px;
+  }
+  .statBarTrack{
+    width:70px; height:6px; border-radius:4px; background:#2a2a3c; overflow:hidden; flex:none;
+  }
+  .statBarFill{ height:100%; border-radius:4px; }
+  .statPct{ width:40px; text-align:right; font-weight:800; flex:none; font-size:11.5px; }
 </style>
 </head>
 <body>
@@ -513,6 +541,7 @@
     <button id="chooseTopicsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
     <button id="timerModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">⏱️ Contrarreloj: Desactivado</button>
     <button id="multiplayerBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">👥 Multijugador</button>
+    <button id="statsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📊 Estadísticas</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -586,6 +615,15 @@
       <button id="closeMultiplayerBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
     </div>
     <button id="exitMultiplayerBtn" style="display:none; width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Salir del modo multijugador</button>
+  </div>
+</div>
+
+<div id="statsOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 id="statsTitle" style="margin:0 0 12px; font-size:15px;">Tus estadísticas</h3>
+    <div id="statsSummary" style="display:flex; gap:8px; margin-bottom:14px;"></div>
+    <div id="statsList" style="overflow-y:auto; flex:1;"></div>
+    <button id="closeStatsBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -1286,6 +1324,36 @@
     return s;
   }
 
+  // -------- Estadísticas / historial --------
+  function freshStats(){
+    const perTopic = {};
+    TOPICS.forEach(t => perTopic[t.key] = { correct: 0, total: 0 });
+    return { correct: 0, total: 0, bestStreak: 0, perTopic };
+  }
+  let soloStats = freshStats(); // se persiste entre sesiones (historial real)
+  let stats = soloStats;        // "stats" siempre apunta a quien tiene el turno
+
+  async function loadSoloStats(){
+    const raw = await storageGet('stats_solo');
+    if(!raw) return;
+    try{
+      const parsed = JSON.parse(raw);
+      soloStats.correct = parsed.correct || 0;
+      soloStats.total = parsed.total || 0;
+      soloStats.bestStreak = parsed.bestStreak || 0;
+      TOPICS.forEach(t=>{
+        const pt = parsed.perTopic && parsed.perTopic[t.key];
+        if(pt) soloStats.perTopic[t.key] = { correct: pt.correct||0, total: pt.total||0 };
+      });
+    }catch(e){ /* dato corrupto, se ignora */ }
+  }
+  loadSoloStats();
+
+  async function saveSoloStats(){
+    if(multiplayerEnabled) return; // el historial persistente es solo del modo un jugador
+    await storageSet('stats_solo', JSON.stringify(soloStats));
+  }
+
   function loadCurrentPlayer(){
     if(!multiplayerEnabled || !players.length) return;
     const p = players[currentPlayerIndex];
@@ -1295,6 +1363,8 @@
     if(!p.wildcards) p.wildcards = freshWildcards();
     wildcards = p.wildcards;
     streak = p.streak || 0;
+    if(!p.stats) p.stats = freshStats();
+    stats = p.stats;
   }
 
   function saveCurrentPlayer(){
@@ -1304,6 +1374,7 @@
     Object.assign(p.state, state);
     p.wildcards = wildcards;
     p.streak = streak;
+    p.stats = stats;
   }
 
   function renderTurnUI(){
@@ -1393,7 +1464,7 @@
       // si ya había una partida multijugador, guardar antes de reiniciar
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0 }));
+      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats() }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -1413,6 +1484,7 @@
       Object.assign(state, freshTopicState());
       wildcards = freshWildcards();
       streak = 0;
+      stats = soloStats;
       renderWildcardButtons();
       renderScore();
       renderStreak();
@@ -1934,6 +2006,64 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
   }
 
+  // ---------------- Estadísticas ----------------
+  const statsBtn = document.getElementById('statsBtn');
+  const statsOverlay = document.getElementById('statsOverlay');
+  const statsTitle = document.getElementById('statsTitle');
+  const statsSummary = document.getElementById('statsSummary');
+  const statsList = document.getElementById('statsList');
+  const closeStatsBtn = document.getElementById('closeStatsBtn');
+
+  function pctColor(pct){
+    if(pct >= 70) return 'var(--good)';
+    if(pct >= 40) return 'var(--accent)';
+    return 'var(--bad)';
+  }
+
+  function renderStats(){
+    statsTitle.textContent = (multiplayerEnabled && players.length)
+      ? 'Estadísticas de ' + players[currentPlayerIndex].name
+      : 'Tus estadísticas';
+
+    const overallPct = stats.total ? Math.round((stats.correct/stats.total)*100) : 0;
+    statsSummary.innerHTML = `
+      <div class="statSummaryCard"><span class="big">${overallPct}%</span><span class="lbl">Aciertos (${stats.correct}/${stats.total})</span></div>
+      <div class="statSummaryCard"><span class="big">🔥${stats.bestStreak}</span><span class="lbl">Mejor racha</span></div>`;
+
+    statsList.innerHTML = '';
+    if(stats.total === 0){
+      statsList.innerHTML = '<p style="font-size:12.5px; color:var(--text-dim); text-align:center; padding:20px 0;">Todavía no respondiste ninguna pregunta.</p>';
+      return;
+    }
+
+    TOPICS.forEach(t=>{
+      const s = stats.perTopic[t.key] || { correct:0, total:0 };
+      if(s.total === 0) return; // no mostrar temas sin intentos todavía
+      const pct = Math.round((s.correct/s.total)*100);
+      const row = document.createElement('div');
+      row.className = 'statTopicRow';
+      row.innerHTML = `
+        <span class="stName">${t.icon} ${t.name}</span>
+        <div class="statBarTrack"><div class="statBarFill" style="width:${pct}%; background:${pctColor(pct)};"></div></div>
+        <span class="statPct" style="color:${pctColor(pct)};">${pct}%</span>`;
+      statsList.appendChild(row);
+    });
+
+    if(!statsList.children.length){
+      statsList.innerHTML = '<p style="font-size:12.5px; color:var(--text-dim); text-align:center; padding:20px 0;">Todavía no respondiste ninguna pregunta.</p>';
+    }
+  }
+
+  if(statsBtn){
+    statsBtn.addEventListener('click', ()=>{
+      renderStats();
+      statsOverlay.style.display = 'flex';
+    });
+    closeStatsBtn.addEventListener('click', ()=>{
+      statsOverlay.style.display = 'none';
+    });
+  }
+
   // ---------------- Spin logic ----------------
   const wheel = document.getElementById('wheel');
   const spinBtn = document.getElementById('spinBtn');
@@ -2195,6 +2325,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       const pts = doubledPts + streakBonus;
       score += pts;
       state[currentTopicKey] = Math.min(MAX_LEVEL, lvl+1);
+      stats.bestStreak = Math.max(stats.bestStreak, streak);
 
       let msg = doubleOrNothingActive
         ? '🎲 ¡Correcto, doble o nada pagó! +' + doubledPts + ' puntos'
@@ -2217,6 +2348,15 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       }
       feedback.className = 'bad';
     }
+
+    if(!stats.perTopic[currentTopicKey]) stats.perTopic[currentTopicKey] = { correct: 0, total: 0 };
+    stats.perTopic[currentTopicKey].total++;
+    stats.total++;
+    if(isCorrect){
+      stats.perTopic[currentTopicKey].correct++;
+      stats.correct++;
+    }
+    saveSoloStats();
 
     renderScore();
     renderStreak();
