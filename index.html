@@ -401,6 +401,40 @@
   .topicRow .swatchDot{
     width:9px; height:9px; border-radius:50%; flex:none;
   }
+
+  .playerRow{
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:8px;
+  }
+  .playerRow input[type="text"]{
+    flex:1; padding:10px 12px; border-radius:8px;
+    border:1.5px solid var(--panel-line); background:#12121a;
+    color:var(--text); font-size:13px; box-sizing:border-box;
+  }
+  .playerRow .removePlayerBtn{
+    flex:none; width:34px; height:34px;
+    background:transparent; border:1.5px solid var(--panel-line);
+    color:var(--text-dim); border-radius:8px; cursor:pointer; font-size:16px;
+  }
+
+  #turnLabel{
+    font-weight:800; margin-right:6px;
+  }
+  #playerChips{
+    display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+    margin:8px 0 0; max-width:480px;
+  }
+  .playerChip{
+    font-size:11px; font-weight:700;
+    padding:5px 11px; border-radius:14px;
+    background:var(--panel); border:1.5px solid var(--panel-line);
+    color:var(--text-dim);
+  }
+  .playerChip.active{
+    background:rgba(255,209,102,0.15);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
 </style>
 </head>
 <body>
@@ -417,7 +451,8 @@
     <p class="subtitle">✨ Gira, responde y sube de nivel en cada tema ✨</p>
   </header>
 
-  <div id="score">🏆 <span id="scoreVal">0</span> puntos</div>
+  <div id="score">🏆 <span id="turnLabel" style="display:none;"></span><span id="scoreVal">0</span> puntos</div>
+  <div id="playerChips" style="display:none;"></div>
   <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
   <div id="wheelWrap">
@@ -431,6 +466,7 @@
   <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; justify-content:center;">
     <button id="chooseTopicsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
     <button id="timerModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">⏱️ Contrarreloj: Desactivado</button>
+    <button id="multiplayerBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">👥 Multijugador</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -490,6 +526,23 @@
   </div>
 </div>
 
+<div id="multiplayerOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 6px; font-size:15px;">Modo multijugador local</h3>
+    <p style="font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
+      Cada jugador tiene su propio puntaje y nivel por tema. Se van pasando la tablet por turnos.
+    </p>
+    <div id="playerInputs" style="overflow-y:auto; flex:1; margin-bottom:10px;"></div>
+    <button id="addPlayerBtn" style="background:transparent; border:1.5px dashed var(--panel-line); color:var(--text-dim); padding:9px; border-radius:9px; font-size:12.5px; cursor:pointer; margin-bottom:10px;">+ Agregar jugador</button>
+    <p id="mpWarning" style="font-size:11.5px; color:var(--bad); margin:0 0 10px; display:none;">Poné al menos 2 nombres (pueden repetirse).</p>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+      <button id="startMultiplayerBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Empezar partida</button>
+      <button id="closeMultiplayerBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+    </div>
+    <button id="exitMultiplayerBtn" style="display:none; width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Salir del modo multijugador</button>
+  </div>
+</div>
+
 <div id="modalOverlay">
   <div id="qCard">
     <span id="qLevel"></span>
@@ -508,7 +561,7 @@
 
 <div id="winOverlay">
   <h2>🎉 ¡Nivel máximo en todo!</h2>
-  <p>Llegaste al nivel 15 en todos tus temas. Puedes seguir jugando para sumar más puntos.</p>
+  <p><span id="winnerName">Llegaste</span> al nivel 15 en todos tus temas. Puedes seguir jugando para sumar más puntos.</p>
   <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
 </div>
 
@@ -1164,6 +1217,145 @@
   let currentTopicKey = null;
   let currentQuestionData = null;
 
+  // -------- Multijugador local --------
+  // "state" y "score" arriba siempre representan al jugador que tiene el turno.
+  // En modo multijugador, cada jugador guarda su propia copia en players[i].
+  let multiplayerEnabled = false;
+  let players = []; // [{ name, score, state: {topicKey: level} }]
+  let currentPlayerIndex = 0;
+
+  function freshTopicState(){
+    const s = {};
+    TOPICS.forEach(t => s[t.key] = 1);
+    return s;
+  }
+
+  function loadCurrentPlayer(){
+    if(!multiplayerEnabled || !players.length) return;
+    const p = players[currentPlayerIndex];
+    score = p.score;
+    Object.keys(state).forEach(k => delete state[k]);
+    Object.assign(state, p.state);
+  }
+
+  function saveCurrentPlayer(){
+    if(!multiplayerEnabled || !players.length) return;
+    const p = players[currentPlayerIndex];
+    p.score = score;
+    Object.assign(p.state, state);
+  }
+
+  function renderTurnUI(){
+    const turnLabel = document.getElementById('turnLabel');
+    const playerChips = document.getElementById('playerChips');
+    if(!multiplayerEnabled || players.length < 2){
+      turnLabel.style.display = 'none';
+      playerChips.style.display = 'none';
+      return;
+    }
+    turnLabel.style.display = 'inline';
+    turnLabel.textContent = players[currentPlayerIndex].name + ':';
+    playerChips.style.display = 'flex';
+    playerChips.innerHTML = '';
+    players.forEach((p, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'playerChip' + (i === currentPlayerIndex ? ' active' : '');
+      chip.textContent = (i === currentPlayerIndex ? '🎯 ' : '') + p.name + ': ' + p.score;
+      playerChips.appendChild(chip);
+    });
+  }
+
+  function nextTurn(){
+    if(!multiplayerEnabled || players.length < 2) return;
+    saveCurrentPlayer();
+    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    loadCurrentPlayer();
+    renderScore();
+    renderLegend();
+    renderTurnUI();
+  }
+
+  // ---- Configuración del modo multijugador ----
+  const multiplayerBtn = document.getElementById('multiplayerBtn');
+  const multiplayerOverlay = document.getElementById('multiplayerOverlay');
+  const playerInputs = document.getElementById('playerInputs');
+  const addPlayerBtn = document.getElementById('addPlayerBtn');
+  const startMultiplayerBtn = document.getElementById('startMultiplayerBtn');
+  const closeMultiplayerBtn = document.getElementById('closeMultiplayerBtn');
+  const exitMultiplayerBtn = document.getElementById('exitMultiplayerBtn');
+  const mpWarning = document.getElementById('mpWarning');
+
+  function addPlayerRow(value){
+    const row = document.createElement('div');
+    row.className = 'playerRow';
+    row.innerHTML = `
+      <input type="text" placeholder="Nombre del jugador" maxlength="16" value="${value ? value.replace(/"/g,'') : ''}">
+      <button class="removePlayerBtn" type="button">✕</button>`;
+    row.querySelector('.removePlayerBtn').addEventListener('click', ()=>{
+      if(playerInputs.children.length > 2) row.remove();
+    });
+    playerInputs.appendChild(row);
+  }
+
+  function renderPlayerSetup(){
+    playerInputs.innerHTML = '';
+    if(multiplayerEnabled && players.length){
+      players.forEach(p => addPlayerRow(p.name));
+    } else {
+      addPlayerRow('Jugador 1');
+      addPlayerRow('Jugador 2');
+    }
+    mpWarning.style.display = 'none';
+    exitMultiplayerBtn.style.display = multiplayerEnabled ? 'block' : 'none';
+  }
+
+  if(multiplayerBtn){
+    multiplayerBtn.addEventListener('click', ()=>{
+      renderPlayerSetup();
+      multiplayerOverlay.style.display = 'flex';
+    });
+    addPlayerBtn.addEventListener('click', ()=>{
+      if(playerInputs.children.length < 8) addPlayerRow('');
+    });
+    closeMultiplayerBtn.addEventListener('click', ()=>{
+      multiplayerOverlay.style.display = 'none';
+    });
+    startMultiplayerBtn.addEventListener('click', ()=>{
+      const names = Array.from(playerInputs.querySelectorAll('input[type="text"]'))
+        .map(inp => inp.value.trim())
+        .filter(n => n.length > 0);
+      if(names.length < 2){
+        mpWarning.style.display = 'block';
+        return;
+      }
+      // si ya había una partida multijugador, guardar antes de reiniciar
+      if(multiplayerEnabled) saveCurrentPlayer();
+
+      players = names.map(name => ({ name, score: 0, state: freshTopicState() }));
+      currentPlayerIndex = 0;
+      multiplayerEnabled = true;
+      loadCurrentPlayer();
+      renderScore();
+      renderLegend();
+      renderTurnUI();
+      multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
+      multiplayerOverlay.style.display = 'none';
+    });
+    exitMultiplayerBtn.addEventListener('click', ()=>{
+      multiplayerEnabled = false;
+      players = [];
+      currentPlayerIndex = 0;
+      score = 0;
+      Object.keys(state).forEach(k => delete state[k]);
+      Object.assign(state, freshTopicState());
+      renderScore();
+      renderLegend();
+      renderTurnUI();
+      multiplayerBtn.textContent = '👥 Multijugador';
+      multiplayerOverlay.style.display = 'none';
+    });
+  }
+
   // -------- Escala de dificultad --------
   // Cada tema tiene 15 niveles de juego, y cada nivel tiene su propio banco de preguntas.
 
@@ -1243,6 +1435,9 @@
       score = 0;
       TOPICS.forEach(t => state[t.key] = 1);
       Object.keys(usedIndex).forEach(k => delete usedIndex[k]);
+      if(multiplayerEnabled && players.length){
+        players.forEach(p => { p.score = 0; p.state = freshTopicState(); });
+      }
 
       for(const topic of TOPICS){
         for(let level=1; level<=MAX_LEVEL; level++){
@@ -1254,6 +1449,7 @@
 
       renderScore();
       renderLegend();
+      renderTurnUI();
       updateBankUI();
 
       resetArmed = false;
@@ -1580,8 +1776,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     });
   }
   renderLegend();
-
-  // ---------------- Temas favoritos: selector ----------------
+  renderTurnUI();
   const chooseTopicsBtn = document.getElementById('chooseTopicsBtn');
   const topicsOverlay = document.getElementById('topicsOverlay');
   const topicsList = document.getElementById('topicsList');
@@ -1862,11 +2057,14 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     modalOverlay.classList.remove('show');
     spinBtn.disabled = false;
     checkWin();
+    nextTurn();
   });
 
   function checkWin(){
     const allMax = getActiveTopics().every(t => state[t.key] === MAX_LEVEL);
     if(allMax){
+      const winnerName = document.getElementById('winnerName');
+      if(winnerName) winnerName.textContent = (multiplayerEnabled && players.length) ? players[currentPlayerIndex].name + ', llegaste' : 'Llegaste';
       document.getElementById('winOverlay').classList.add('show');
     }
   }
