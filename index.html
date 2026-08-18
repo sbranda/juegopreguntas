@@ -249,27 +249,39 @@
   /* ---- Topic levels legend ---- */
   #legendGrid{
     width:100%;
-    display:grid; grid-template-columns:repeat(2,1fr);
-    gap:8px; margin-top:22px;
+    display:flex; flex-direction:column;
+    gap:9px; margin-top:22px;
   }
   .legendItem{
     background:var(--panel);
     border:1px solid var(--panel-line);
-    border-left:4px solid var(--topic-color, var(--panel-line));
+    border-left:6px solid var(--topic-color, var(--panel-line));
     border-radius:10px;
-    padding:9px 12px;
+    padding:12px 14px;
     display:flex; align-items:center; justify-content:space-between;
-    font-size:12px;
+    gap:10px;
+    font-size:15px;
   }
   .legendItem .name{
-    display:flex; align-items:center; gap:7px;
-    font-weight:700;
+    display:flex; align-items:center; gap:9px;
+    font-weight:800;
+    font-size:15.5px;
   }
+  .legendItem .nameIcon{ font-size:20px; flex:none; }
   .legendItem .swatch{
-    width:9px; height:9px; border-radius:50%;
+    width:11px; height:11px; border-radius:50%; flex:none;
+  }
+  .legendItem .lvlWrap{
+    display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none;
   }
   .legendItem .lvl{
-    color:var(--text-dim); font-size:11px;
+    color:var(--text); font-size:13px; font-weight:800;
+  }
+  .legendItem .lvlBarTrack{
+    width:70px; height:6px; border-radius:4px; background:#2a2a3c; overflow:hidden;
+  }
+  .legendItem .lvlBarFill{
+    height:100%; border-radius:4px; background:var(--topic-color, var(--accent));
   }
 
   /* ---- Modal ---- */
@@ -2629,55 +2641,22 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       path.setAttribute('stroke-width', '2');
       svg.appendChild(path);
 
+      // Solo un ícono grande, sin rotar, centrado en la porción. Nada de texto chico:
+      // el nombre completo y el nivel se ven grandes y claros en las tarjetas de abajo
+      // y en el cartel "Salió: ..." al girar — mucho más accesible que 3 líneas diminutas
+      // apretadas en una porción angosta.
       const midAngle = startAngle + seg/2;
-      const labelPos = polarToXY(CX,CY,R*0.66,midAngle);
+      const iconPos = polarToXY(CX,CY,R*0.68,midAngle);
 
-      // Orientación tangencial (como si el texto "abrazara" el círculo). En la mitad
-      // inferior de la rueda esto queda al revés, así que se voltea 180° para que
-      // siempre se lea de corrido, sin importar en qué porción caiga.
-      let rot = midAngle;
-      if(midAngle > 90 && midAngle < 270) rot += 180;
-
-      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-      text.setAttribute('x', labelPos.x);
-      text.setAttribute('text-anchor','middle');
-      text.setAttribute('font-weight','800');
-      text.setAttribute('fill','#ffffff');
-      text.setAttribute('stroke','rgba(0,0,0,0.55)');
-      text.setAttribute('stroke-width','2');
-      text.setAttribute('paint-order','stroke');
-      text.setAttribute('transform', `rotate(${rot}, ${labelPos.x}, ${labelPos.y})`);
-
-      // Ícono y nombre en dos renglones separados (se acomodan en el sentido radial,
-      // por lo que no invaden las porciones vecinas).
-      const tspanIcon = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-      tspanIcon.setAttribute('x', labelPos.x);
-      tspanIcon.setAttribute('y', labelPos.y);
-      tspanIcon.setAttribute('dy', '-5.5');
-      tspanIcon.setAttribute('font-size', n <= 6 ? '15' : '13');
-      tspanIcon.textContent = t.icon;
-      text.appendChild(tspanIcon);
-
-      const tspanName = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-      tspanName.setAttribute('x', labelPos.x);
-      tspanName.setAttribute('y', labelPos.y);
-      tspanName.setAttribute('dy', '8.5');
-      tspanName.setAttribute('font-size', n <= 6 ? '10' : '8.7');
-      tspanName.textContent = WHEEL_LABEL[t.key] || t.name;
-      text.appendChild(tspanName);
-
-      // Nivel actual del jugador en ese tema, directo sobre la porción
-      const tspanLevel = document.createElementNS('http://www.w3.org/2000/svg','tspan');
-      tspanLevel.setAttribute('x', labelPos.x);
-      tspanLevel.setAttribute('y', labelPos.y);
-      tspanLevel.setAttribute('dy', '10');
-      tspanLevel.setAttribute('font-size', n <= 6 ? '8.5' : '7.3');
-      tspanLevel.setAttribute('fill', '#fff8dd');
-      tspanLevel.setAttribute('opacity', '0.95');
-      tspanLevel.textContent = 'Nv ' + (state[t.key] || 1) + '/' + MAX_LEVEL;
-      text.appendChild(tspanLevel);
-
-      svg.appendChild(text);
+      const iconText = document.createElementNS('http://www.w3.org/2000/svg','text');
+      iconText.setAttribute('x', iconPos.x);
+      iconText.setAttribute('y', iconPos.y);
+      iconText.setAttribute('text-anchor','middle');
+      iconText.setAttribute('dominant-baseline','central');
+      iconText.setAttribute('font-size', n <= 6 ? '34' : (n <= 8 ? '30' : '26'));
+      iconText.style.paintOrder = 'stroke';
+      iconText.textContent = t.icon;
+      svg.appendChild(iconText);
     });
   }
   renderWheel();
@@ -2715,9 +2694,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       div.className = 'legendItem';
       div.style.setProperty('--topic-color', t.color);
       const lvl = state[t.key];
+      const pct = Math.round((lvl/MAX_LEVEL)*100);
       div.innerHTML = `
-        <span class="name"><span class="swatch" style="background:${t.color}"></span>${t.icon} ${t.name}</span>
-        <span class="lvl">Nv ${lvl}/${MAX_LEVEL}</span>`;
+        <span class="name"><span class="swatch" style="background:${t.color}"></span><span class="nameIcon">${t.icon}</span>${t.name}</span>
+        <span class="lvlWrap">
+          <span class="lvl">Nivel ${lvl}/${MAX_LEVEL}</span>
+          <span class="lvlBarTrack"><span class="lvlBarFill" style="width:${pct}%;"></span></span>
+        </span>`;
       legendGrid.appendChild(div);
     });
   }
