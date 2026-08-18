@@ -2250,15 +2250,30 @@
   }
 
   // -------- Escala de dificultad --------
-  // Cada tema tiene 15 niveles de juego, y cada nivel tiene su propio banco de preguntas.
+  // Cada tema tiene 15 niveles de juego. Cada nivel tiene su propio banco de preguntas,
+  // pero para elegir una pregunta se combina con los otros 2 niveles de su mismo "grupo de
+  // dificultad" (1-3, 4-6, 7-9, 10-12, 13-15). Así hay más variedad real (menos repetición)
+  // sin mezclar dificultades distintas, incluso cuando algún nivel individual tiene pocas
+  // preguntas propias todavía.
+  function tierGroupLevels(level){
+    const start = Math.floor((level-1)/3)*3 + 1;
+    const levels = [];
+    for(let l=start; l<start+3 && l<=MAX_LEVEL; l++) levels.push(l);
+    return levels;
+  }
 
-  // usedIndex['topicKey-level'] = Set de índices ya preguntados, para no repetir hasta agotar el pool
+  // usedIndex['topicKey-grupo'] = Set de índices ya preguntados dentro del grupo, para no
+  // repetir hasta agotar todo el grupo de dificultad
   const usedIndex = {};
   function pickQuestion(topicKey, level){
-    const pool = QUESTIONS[topicKey][level];
-    const key = topicKey + '-' + level;
+    const levels = tierGroupLevels(level);
+    const pool = [];
+    levels.forEach(l => { (QUESTIONS[topicKey][l] || []).forEach(q => pool.push(q)); });
+    if(!pool.length) return null;
+
+    const key = topicKey + '-grupo-' + levels[0];
     if(!usedIndex[key]) usedIndex[key] = new Set();
-    if(usedIndex[key].size >= pool.length) usedIndex[key].clear(); // se agotó el pool, reiniciar
+    if(usedIndex[key].size >= pool.length) usedIndex[key].clear(); // se agotó el grupo, reiniciar
     let idx;
     do { idx = Math.floor(Math.random()*pool.length); } while(usedIndex[key].has(idx) && usedIndex[key].size < pool.length);
     usedIndex[key].add(idx);
