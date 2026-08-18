@@ -1954,9 +1954,11 @@
           feedbackP.textContent = '¡Correcto! +' + pts + ' puntos';
           feedbackP.style.color = 'var(--good)';
           launchConfetti();
+          vibrateFeedback(true);
         } else {
           feedbackP.textContent = 'No era esa. ¡Probá de nuevo mañana!';
           feedbackP.style.color = 'var(--bad)';
+          vibrateFeedback(false);
         }
 
         if(daily.q.explanation){
@@ -3651,6 +3653,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       feedback.textContent = msg;
       feedback.className = 'good';
       launchConfetti();
+      vibrateFeedback(true);
     } else {
       streak = 0;
       state[currentTopicKey] = Math.max(1, state[currentTopicKey]-1);
@@ -3664,6 +3667,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
           : 'No era esa. El nivel de este tema baja un poco.';
       }
       feedback.className = 'bad';
+      vibrateFeedback(false);
     }
 
     if(!stats.perTopic[currentTopicKey]) stats.perTopic[currentTopicKey] = { correct: 0, total: 0 };
@@ -3751,6 +3755,29 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       ], { duration: 900 + Math.random()*500, easing:'cubic-bezier(.2,.7,.3,1)' });
       setTimeout(()=> piece.remove(), 1500);
     }
+  }
+
+  // -------- Vibración háptica al acertar/fallar --------
+  // Refuerzo físico que no depende del sonido: celular (Vibration API, principalmente
+  // Android — iOS Safari no la soporta) y control conectado (Gamepad API), lo que haya.
+  function vibrateFeedback(isCorrect){
+    try{
+      if(navigator.vibrate){
+        navigator.vibrate(isCorrect ? [40] : [70, 60, 70]);
+      }
+    }catch(e){}
+
+    try{
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for(const gp of pads){
+        if(gp && gp.vibrationActuator){
+          gp.vibrationActuator.playEffect('dual-rumble', isCorrect
+            ? { duration: 120, startDelay: 0, strongMagnitude: 0.3, weakMagnitude: 0.5 }
+            : { duration: 260, startDelay: 0, strongMagnitude: 0.8, weakMagnitude: 0.4 }
+          ).catch(()=>{});
+        }
+      }
+    }catch(e){}
   }
 
   renderScore();
