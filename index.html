@@ -688,6 +688,7 @@
     <button id="shareBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📤 Compartir</button>
     <button id="leaderboardBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏆 Posiciones</button>
     <button id="a11yBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🔤 Tamaño de texto</button>
+    <button id="reviewModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📖 Modo repaso</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -720,7 +721,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros y el desafío diario</b>. Tu clave, los temas favoritos y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario y el banco de repaso</b>. Tu clave, los temas favoritos y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -1626,6 +1627,34 @@
     await storageSet('achievements_solo', JSON.stringify(soloAchievements));
   }
 
+  // -------- Modo repaso: banco de preguntas falladas --------
+  // missedQuestions[topicKey] = { "texto de la pregunta": {q, options, correct, image, explanation, level} }
+  function freshMissed(){ return {}; }
+  let soloMissed = freshMissed();
+  let missedQuestions = soloMissed; // apunta a quien tiene el turno
+
+  async function loadSoloMissed(){
+    const raw = await storageGet('missed_solo');
+    if(!raw) return;
+    try{
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object') Object.assign(soloMissed, parsed);
+    }catch(e){ /* dato corrupto, se ignora */ }
+    if(typeof updateReviewBtnLabel === 'function') updateReviewBtnLabel();
+  }
+  loadSoloMissed();
+
+  async function saveSoloMissed(){
+    if(multiplayerEnabled) return;
+    await storageSet('missed_solo', JSON.stringify(soloMissed));
+  }
+
+  function missedCount(){
+    let n = 0;
+    Object.values(missedQuestions).forEach(topicMap => { n += Object.keys(topicMap).length; });
+    return n;
+  }
+
   const achievementToast = document.getElementById('achievementToast');
   const toastIcon = document.getElementById('toastIcon');
   const toastText = document.getElementById('toastText');
@@ -1815,6 +1844,7 @@
         renderStreak();
         renderLegend();
         renderWheel();
+        if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
 
         setTimeout(()=>{ renderDaily(); }, daily.q.explanation ? 4200 : 1600);
       });
@@ -2232,6 +2262,8 @@
     stats = p.stats;
     if(!p.achievements) p.achievements = [];
     achievements = p.achievements;
+    if(!p.missed) p.missed = freshMissed();
+    missedQuestions = p.missed;
   }
 
   function saveCurrentPlayer(){
@@ -2243,6 +2275,7 @@
     p.streak = streak;
     p.stats = stats;
     p.achievements = achievements;
+    p.missed = missedQuestions;
   }
 
   function renderTurnUI(){
@@ -2274,6 +2307,7 @@
     renderStreak();
     renderLegend();
     renderWheel();
+    if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
     renderTurnUI();
   }
 
@@ -2333,7 +2367,7 @@
       // si ya había una partida multijugador, guardar antes de reiniciar
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [] }));
+      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed() }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -2341,6 +2375,7 @@
       renderStreak();
       renderLegend();
       renderWheel();
+      if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
@@ -2356,11 +2391,13 @@
       streak = 0;
       stats = soloStats;
       achievements = soloAchievements;
+      missedQuestions = soloMissed;
       renderWildcardButtons();
       renderScore();
       renderStreak();
       renderLegend();
       renderWheel();
+      if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 Multijugador';
       multiplayerOverlay.style.display = 'none';
@@ -2471,15 +2508,18 @@
       soloStats.correct = 0; soloStats.total = 0; soloStats.bestStreak = 0;
       TOPICS.forEach(t => soloStats.perTopic[t.key] = { correct:0, total:0 });
       soloAchievements.length = 0;
+      Object.keys(soloMissed).forEach(k => delete soloMissed[k]);
+      reviewModeEnabled = false;
       await storageDelete('stats_solo');
       await storageDelete('achievements_solo');
       await storageDelete('daily_last_played');
       await storageDelete('daily_streak');
+      await storageDelete('missed_solo');
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
           p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); p.streak = 0;
-          p.stats = freshStats(); p.achievements = [];
+          p.stats = freshStats(); p.achievements = []; p.missed = freshMissed();
         });
       }
 
@@ -2495,6 +2535,7 @@
       renderStreak();
       renderLegend();
       renderWheel();
+      if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
       renderTurnUI();
       renderWildcardButtons();
       updateBankUI();
@@ -2722,9 +2763,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     return active.length ? active : TOPICS; // nunca dejar la rueda vacía
   }
 
+  // -------- Modo repaso: la rueda solo muestra temas con preguntas falladas pendientes --------
+  let reviewModeEnabled = false;
+  function getWheelTopics(){
+    const active = getActiveTopics();
+    if(!reviewModeEnabled) return active;
+    return active.filter(t => missedQuestions[t.key] && Object.keys(missedQuestions[t.key]).length > 0);
+  }
+
   function renderWheel(){
     svg.innerHTML = '';
-    const active = getActiveTopics();
+    const active = getWheelTopics();
     const n = active.length;
     const seg = 360 / n;
 
@@ -3002,13 +3051,24 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   function spin(){
     if(spinning) return;
-    spinning = true;
-    spinBtn.disabled = true;
 
     const wheelResultLabel = document.getElementById('wheelResultLabel');
+
+    if(reviewModeEnabled && getWheelTopics().length === 0){
+      wheelResultLabel.innerHTML = '📖 No te quedan preguntas para repasar. ¡Bien ahí!';
+      wheelResultLabel.style.borderColor = 'var(--good)';
+      wheelResultLabel.style.display = 'flex';
+      wheelResultLabel.style.animation = 'none';
+      void wheelResultLabel.offsetWidth;
+      wheelResultLabel.style.animation = '';
+      return;
+    }
+
+    spinning = true;
+    spinBtn.disabled = true;
     wheelResultLabel.style.display = 'none';
 
-    const active = getActiveTopics();
+    const active = getWheelTopics();
     const n = active.length;
     const seg = 360 / n;
 
@@ -3033,7 +3093,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       spinning = false;
       const chosenTopic = active[chosenIndex];
 
-      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL;
+      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · ' + (reviewModeEnabled ? '📖 Repaso' : ('Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL));
       wheelResultLabel.style.borderColor = chosenTopic.color;
       wheelResultLabel.style.display = 'flex';
       // reinicia la animación de aparición
@@ -3087,6 +3147,39 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       updateTimerBtnLabel();
     }
   })();
+
+  // ---------------- Modo repaso ----------------
+  const reviewModeBtn = document.getElementById('reviewModeBtn');
+
+  function updateReviewBtnLabel(){
+    if(!reviewModeBtn) return;
+    const n = missedCount();
+    reviewModeBtn.textContent = reviewModeEnabled
+      ? '📖 Repasando (' + n + ')'
+      : (n > 0 ? '📖 Modo repaso (' + n + ')' : '📖 Modo repaso');
+    reviewModeBtn.style.borderColor = reviewModeEnabled ? 'var(--accent)' : 'var(--panel-line)';
+    reviewModeBtn.style.color = reviewModeEnabled ? 'var(--accent)' : 'var(--text-dim)';
+  }
+
+  if(reviewModeBtn){
+    reviewModeBtn.addEventListener('click', ()=>{
+      if(!reviewModeEnabled && missedCount() === 0){
+        const wheelResultLabel = document.getElementById('wheelResultLabel');
+        wheelResultLabel.innerHTML = '📖 Todavía no fallaste ninguna pregunta para repasar.';
+        wheelResultLabel.style.borderColor = 'var(--accent)';
+        wheelResultLabel.style.display = 'flex';
+        wheelResultLabel.style.animation = 'none';
+        void wheelResultLabel.offsetWidth;
+        wheelResultLabel.style.animation = '';
+        return;
+      }
+      reviewModeEnabled = !reviewModeEnabled;
+      updateReviewBtnLabel();
+      renderWheel();
+    });
+  }
+  updateReviewBtnLabel();
+
 
   function stopTimer(){
     if(timerRAF){ cancelAnimationFrame(timerRAF); timerRAF = null; }
@@ -3200,13 +3293,20 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     currentTopicKey = topicKey;
     const topic = TOPICS.find(t=>t.key===topicKey);
     const level = state[topicKey];
-    const qData = pickQuestion(topicKey, level);
+
+    let qData;
+    if(reviewModeEnabled && missedQuestions[topicKey] && Object.keys(missedQuestions[topicKey]).length){
+      const pool = Object.values(missedQuestions[topicKey]);
+      qData = pool[Math.floor(Math.random()*pool.length)];
+    } else {
+      qData = pickQuestion(topicKey, level);
+    }
     currentQuestionData = qData;
 
     qTopicTag.textContent = topic.icon + ' ' + topic.name;
     qTopicTag.style.background = topic.color;
     qTopicTag.style.color = 'rgba(0,0,0,0.75)';
-    qLevel.textContent = 'Nivel ' + level + ' / ' + MAX_LEVEL;
+    qLevel.textContent = reviewModeEnabled ? '📖 Repaso' : ('Nivel ' + level + ' / ' + MAX_LEVEL);
     qText.textContent = qData.q;
 
     if(qData.image){
@@ -3313,6 +3413,25 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     saveSoloStats();
     checkAchievements();
 
+    // banco de repaso: si fallás, la pregunta queda guardada para repasar después;
+    // si la acertás (incluso en modo repaso), sale del banco.
+    if(!missedQuestions[currentTopicKey]) missedQuestions[currentTopicKey] = {};
+    const missedKey = currentQuestionData.q;
+    if(isCorrect){
+      if(missedQuestions[currentTopicKey][missedKey]) delete missedQuestions[currentTopicKey][missedKey];
+    } else {
+      missedQuestions[currentTopicKey][missedKey] = {
+        q: currentQuestionData.q,
+        options: currentQuestionData.options,
+        correct: currentQuestionData.correct,
+        image: currentQuestionData.image,
+        explanation: currentQuestionData.explanation,
+        level: state[currentTopicKey]
+      };
+    }
+    saveSoloMissed();
+    updateReviewBtnLabel();
+
     if(currentQuestionData.explanation){
       explanationBox.innerHTML = '<b>💡 Por qué:</b> ' + currentQuestionData.explanation;
       explanationBox.style.display = 'block';
@@ -3324,6 +3443,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     renderStreak();
     renderLegend();
     renderWheel();
+    if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
     continueBtn.style.display = 'block';
   }
 
