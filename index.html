@@ -419,6 +419,13 @@
   }
   #feedback.good{ color:var(--good); }
   #feedback.bad{ color:var(--bad); }
+  #explanationBox{
+    margin-top:10px;
+    background:#1a1428; border:1px solid var(--panel-line); border-left:3px solid var(--accent);
+    border-radius:8px; padding:10px 12px;
+    font-size:0.8125rem; color:var(--text-dim); line-height:1.5;
+  }
+  #explanationBox b{ color:var(--accent); }
   #continueBtn{
     display:none;
     width:100%; margin-top:14px;
@@ -870,6 +877,7 @@
     </div>
     <div id="options"></div>
     <div id="feedback"></div>
+    <div id="explanationBox" style="display:none;"></div>
     <button id="continueBtn">Continuar</button>
   </div>
 </div>
@@ -911,549 +919,549 @@
   const QUESTIONS = {
     historia: {
       1:[
-        {q:"¿En qué continente comenzó la Primera Guerra Mundial?", options:["Europa","Asia","África","Oceanía"], correct:0},
+        {q:"¿En qué continente comenzó la Primera Guerra Mundial?", options:["Europa","Asia","África","Oceanía"], correct:0, explanation:"El conflicto estalló en 1914 tras el asesinato del archiduque Francisco Fernando en Sarajevo, en el corazón de Europa."},
       ],
       2:[
-        {q:"¿En qué siglo llegó Cristóbal Colón a América?", options:["XIV","XV","XVI","XVII"], correct:1},
-        {q:"¿Qué monumento es este?", image:"🗽", options:["Estatua de la Libertad","Cristo Redentor","Coloso de Rodas","Torre de Pisa"], correct:0},
+        {q:"¿En qué siglo llegó Cristóbal Colón a América?", options:["XIV","XV","XVI","XVII"], correct:1, explanation:"Colón llegó a América en 1492, dentro del siglo XV."},
+        {q:"¿Qué monumento es este?", image:"🗽", options:["Estatua de la Libertad","Cristo Redentor","Coloso de Rodas","Torre de Pisa"], correct:0, explanation:"Fue un regalo de Francia a Estados Unidos en 1886, ubicada en la bahía de Nueva York."},
       ],
       3:[
-        {q:"¿Qué antigua civilización construyó las pirámides de Guiza?", options:["Egipcia","Maya","Persa","Sumeria"], correct:0},
+        {q:"¿Qué antigua civilización construyó las pirámides de Guiza?", options:["Egipcia","Maya","Persa","Sumeria"], correct:0, explanation:"Las pirámides de Guiza fueron construidas por los antiguos egipcios como tumbas para sus faraones."},
       ],
       4:[
-        {q:"¿Qué imperio construyó Machu Picchu?", options:["Azteca","Maya","Inca","Olmeca"], correct:2},
+        {q:"¿Qué imperio construyó Machu Picchu?", options:["Azteca","Maya","Inca","Olmeca"], correct:2, explanation:"Machu Picchu fue una ciudadela inca construida en el siglo XV en los Andes peruanos."},
       ],
       5:[
-        {q:"¿Qué revolución comenzó en Francia en 1789?", options:["Revolución Industrial","Revolución Francesa","Revolución Rusa","Revolución Mexicana"], correct:1},
-        {q:"¿En qué isla se encuentran estas estatuas (moáis)?", image:"🗿", options:["Isla de Pascua","Islas Galápagos","Madagascar","Islandia"], correct:0},
+        {q:"¿Qué revolución comenzó en Francia en 1789?", options:["Revolución Industrial","Revolución Francesa","Revolución Rusa","Revolución Mexicana"], correct:1, explanation:"La Revolución Francesa derrocó a la monarquía y transformó la política europea."},
+        {q:"¿En qué isla se encuentran estas estatuas (moáis)?", image:"🗿", options:["Isla de Pascua","Islas Galápagos","Madagascar","Islandia"], correct:0, explanation:"Los moáis fueron tallados por el pueblo rapanui en la Isla de Pascua, en el Pacífico."},
       ],
       6:[
-        {q:"¿Quién fue, junto a San Martín, uno de los principales libertadores de Sudamérica?", options:["Simón Bolívar","Hernán Cortés","Francisco Pizarro","Bernardo O'Higgins"], correct:0},
+        {q:"¿Quién fue, junto a San Martín, uno de los principales libertadores de Sudamérica?", options:["Simón Bolívar","Hernán Cortés","Francisco Pizarro","Bernardo O'Higgins"], correct:0, explanation:"Simón Bolívar lideró la independencia de varios países sudamericanos del dominio español."},
       ],
       7:[
-        {q:"¿En qué año cayó el Muro de Berlín?", options:["1975","1989","1991","2001"], correct:1},
+        {q:"¿En qué año cayó el Muro de Berlín?", options:["1975","1989","1991","2001"], correct:1, explanation:"El muro cayó el 9 de noviembre de 1989, marcando el fin de la división de Alemania."},
       ],
       8:[
-        {q:"¿En qué año terminó la Segunda Guerra Mundial?", options:["1943","1945","1947","1950"], correct:1},
-        {q:"¿En qué ciudad se encuentra este lugar sagrado?", image:"🕋", options:["Medina","La Meca","Jerusalén","Estambul"], correct:1},
+        {q:"¿En qué año terminó la Segunda Guerra Mundial?", options:["1943","1945","1947","1950"], correct:1, explanation:"La guerra terminó en 1945 con la rendición de Alemania y Japón."},
+        {q:"¿En qué ciudad se encuentra este lugar sagrado?", image:"🕋", options:["Medina","La Meca","Jerusalén","Estambul"], correct:1, explanation:"La Kaaba se encuentra en La Meca, Arabia Saudita, el lugar más sagrado del islam."},
       ],
       9:[
-        {q:"¿Qué imperio gobernó gran parte de Europa bajo Napoleón Bonaparte?", options:["Imperio Austrohúngaro","Imperio Francés","Imperio Otomano","Imperio Ruso"], correct:1},
+        {q:"¿Qué imperio gobernó gran parte de Europa bajo Napoleón Bonaparte?", options:["Imperio Austrohúngaro","Imperio Francés","Imperio Otomano","Imperio Ruso"], correct:1, explanation:"Napoleón expandió el Imperio Francés por gran parte de Europa a inicios del siglo XIX."},
       ],
       10:[
-        {q:"¿Quién fue el primer emperador de Roma?", options:["Julio César","Nerón","Augusto","Trajano"], correct:2},
+        {q:"¿Quién fue el primer emperador de Roma?", options:["Julio César","Nerón","Augusto","Trajano"], correct:2, explanation:"Augusto se convirtió en el primer emperador romano en el año 27 a.C."},
       ],
       11:[
-        {q:"¿Qué faraón egipcio es famoso por su tumba casi intacta descubierta en 1922?", options:["Ramsés II","Akenatón","Tutankamón","Keops"], correct:2},
-        {q:"¿Qué estilo arquitectónico representa este ícono?", image:"🏛️", options:["Gótico","Clásico grecorromano","Barroco","Moderno"], correct:1},
+        {q:"¿Qué faraón egipcio es famoso por su tumba casi intacta descubierta en 1922?", options:["Ramsés II","Akenatón","Tutankamón","Keops"], correct:2, explanation:"Howard Carter descubrió la tumba de Tutankamón prácticamente intacta en 1922."},
+        {q:"¿Qué estilo arquitectónico representa este ícono?", image:"🏛️", options:["Gótico","Clásico grecorromano","Barroco","Moderno"], correct:1, explanation:"Las columnas y frontones son característicos de la arquitectura clásica griega y romana."},
       ],
       12:[
-        {q:"¿Qué guerra de la Antigua Grecia enfrentó a Esparta y Atenas?", options:["Guerras Médicas","Guerra del Peloponeso","Guerra de Troya","Guerras Púnicas"], correct:1},
+        {q:"¿Qué guerra de la Antigua Grecia enfrentó a Esparta y Atenas?", options:["Guerras Médicas","Guerra del Peloponeso","Guerra de Troya","Guerras Púnicas"], correct:1, explanation:"La Guerra del Peloponeso (431-404 a.C.) enfrentó a estas dos potencias griegas."},
       ],
       13:[
-        {q:"¿Qué tratado puso fin formalmente a la Primera Guerra Mundial?", options:["Tratado de Utrecht","Tratado de Versalles","Tratado de Tordesillas","Congreso de Viena"], correct:1},
+        {q:"¿Qué tratado puso fin formalmente a la Primera Guerra Mundial?", options:["Tratado de Utrecht","Tratado de Versalles","Tratado de Tordesillas","Congreso de Viena"], correct:1, explanation:"El Tratado de Versalles, firmado en 1919, puso fin oficialmente a la Primera Guerra Mundial."},
       ],
       14:[
-        {q:"¿Qué conferencia de 1945 definió la ocupación de Alemania tras la guerra?", options:["Conferencia de Potsdam","Congreso de Viena","Conferencia de Múnich","Tratado de Roma"], correct:0},
-        {q:"¿Con qué tipo de construcción histórica se asocia este ícono?", image:"🏰", options:["Castillo medieval","Rascacielos","Estadio romano","Acueducto"], correct:0},
+        {q:"¿Qué conferencia de 1945 definió la ocupación de Alemania tras la guerra?", options:["Conferencia de Potsdam","Congreso de Viena","Conferencia de Múnich","Tratado de Roma"], correct:0, explanation:"En Potsdam, los Aliados acordaron cómo administrar la Alemania derrotada."},
+        {q:"¿Con qué tipo de construcción histórica se asocia este ícono?", image:"🏰", options:["Castillo medieval","Rascacielos","Estadio romano","Acueducto"], correct:0, explanation:"Los castillos con torres y almenas son típicos de la arquitectura defensiva medieval."},
       ],
       15:[
-        {q:"¿Qué revolución de 1917 llevó a los bolcheviques al poder en Rusia?", options:["Revolución de Febrero","Revolución de Octubre","Revolución Cultural","Revolución Naranja"], correct:1},
+        {q:"¿Qué revolución de 1917 llevó a los bolcheviques al poder en Rusia?", options:["Revolución de Febrero","Revolución de Octubre","Revolución Cultural","Revolución Naranja"], correct:1, explanation:"La Revolución de Octubre de 1917 llevó a Lenin y los bolcheviques al poder."},
       ],
     },
     ciencia: {
       1:[
-        {q:"¿Cuál es el planeta más cercano al Sol?", options:["Venus","Marte","Mercurio","Tierra"], correct:2},
-        {q:"¿Qué animal es este?", image:"🦁", options:["Tigre","León","Leopardo","Jaguar"], correct:1},
+        {q:"¿Cuál es el planeta más cercano al Sol?", options:["Venus","Marte","Mercurio","Tierra"], correct:2, explanation:"Mercurio orbita más cerca del Sol que cualquier otro planeta del sistema solar."},
+        {q:"¿Qué animal es este?", image:"🦁", options:["Tigre","León","Leopardo","Jaguar"], correct:1, explanation:"El león es reconocible por su melena y se le conoce como el 'rey de la selva'."},
       ],
       2:[
-        {q:"¿Cuál es el órgano principal del sistema circulatorio?", options:["Pulmón","Corazón","Hígado","Riñón"], correct:1},
-        {q:"¿Qué animal es este?", image:"🐘", options:["Rinoceronte","Hipopótamo","Elefante","Búfalo"], correct:2},
+        {q:"¿Cuál es el órgano principal del sistema circulatorio?", options:["Pulmón","Corazón","Hígado","Riñón"], correct:1, explanation:"El corazón bombea la sangre a través de todo el cuerpo."},
+        {q:"¿Qué animal es este?", image:"🐘", options:["Rinoceronte","Hipopótamo","Elefante","Búfalo"], correct:2, explanation:"El elefante es el mamífero terrestre más grande, reconocible por su trompa."},
       ],
       3:[
-        {q:"¿Qué gas respiramos principalmente para vivir?", options:["Nitrógeno","Dióxido de carbono","Oxígeno","Hidrógeno"], correct:2},
+        {q:"¿Qué gas respiramos principalmente para vivir?", options:["Nitrógeno","Dióxido de carbono","Oxígeno","Hidrógeno"], correct:2, explanation:"El oxígeno es esencial para que nuestras células produzcan energía."},
       ],
       4:[
-        {q:"¿Qué gas necesitan las plantas para hacer fotosíntesis?", options:["Oxígeno","Dióxido de carbono","Nitrógeno","Hidrógeno"], correct:1},
-        {q:"¿Qué animal es este?", image:"🦒", options:["Camello","Jirafa","Avestruz","Alce"], correct:1},
+        {q:"¿Qué gas necesitan las plantas para hacer fotosíntesis?", options:["Oxígeno","Dióxido de carbono","Nitrógeno","Hidrógeno"], correct:1, explanation:"Las plantas absorben dióxido de carbono y liberan oxígeno durante la fotosíntesis."},
+        {q:"¿Qué animal es este?", image:"🦒", options:["Camello","Jirafa","Avestruz","Alce"], correct:1, explanation:"La jirafa es el animal terrestre más alto, gracias a su largo cuello."},
       ],
       5:[
-        {q:"¿Cuántos huesos tiene aproximadamente el cuerpo humano adulto?", options:["106","206","306","406"], correct:1},
-        {q:"¿Qué animal es este?", image:"🐧", options:["Foca","Pingüino","Pato","Cisne"], correct:1},
+        {q:"¿Cuántos huesos tiene aproximadamente el cuerpo humano adulto?", options:["106","206","306","406"], correct:1, explanation:"Un adulto tiene 206 huesos, menos que los bebés porque algunos se fusionan al crecer."},
+        {q:"¿Qué animal es este?", image:"🐧", options:["Foca","Pingüino","Pato","Cisne"], correct:1, explanation:"Los pingüinos son aves que no vuelan, adaptadas para nadar en aguas frías."},
       ],
       6:[
-        {q:"¿Qué estado de la materia tiene forma y volumen definidos?", options:["Gaseoso","Líquido","Sólido","Plasma"], correct:2},
+        {q:"¿Qué estado de la materia tiene forma y volumen definidos?", options:["Gaseoso","Líquido","Sólido","Plasma"], correct:2, explanation:"Los sólidos mantienen su forma y volumen, a diferencia de líquidos y gases."},
       ],
       7:[
-        {q:"¿Cuál es la unidad básica de la herencia genética?", options:["Célula","Cromosoma","Gen","Proteína"], correct:2},
-        {q:"¿Qué animal es este?", image:"🦓", options:["Caballo","Cebra","Burro","Okapi"], correct:1},
+        {q:"¿Cuál es la unidad básica de la herencia genética?", options:["Célula","Cromosoma","Gen","Proteína"], correct:2, explanation:"Los genes son segmentos de ADN que contienen la información hereditaria."},
+        {q:"¿Qué animal es este?", image:"🦓", options:["Caballo","Cebra","Burro","Okapi"], correct:1, explanation:"La cebra se distingue por sus rayas blancas y negras, únicas en cada individuo."},
       ],
       8:[
-        {q:"¿Qué científico propuso la teoría de la evolución por selección natural?", options:["Mendel","Darwin","Pasteur","Lamarck"], correct:1},
-        {q:"¿Qué animal es este?", image:"🦥", options:["Perezoso","Koala","Oso hormiguero","Armadillo"], correct:0},
+        {q:"¿Qué científico propuso la teoría de la evolución por selección natural?", options:["Mendel","Darwin","Pasteur","Lamarck"], correct:1, explanation:"Charles Darwin publicó 'El origen de las especies' en 1859."},
+        {q:"¿Qué animal es este?", image:"🦥", options:["Perezoso","Koala","Oso hormiguero","Armadillo"], correct:0, explanation:"El perezoso es conocido por su lentitud extrema y vivir colgado de los árboles."},
       ],
       9:[
-        {q:"¿Cuál es la velocidad aproximada de la luz en el vacío?", options:["30.000 km/s","300.000 km/s","3.000.000 km/s","300 km/s"], correct:1},
+        {q:"¿Cuál es la velocidad aproximada de la luz en el vacío?", options:["30.000 km/s","300.000 km/s","3.000.000 km/s","300 km/s"], correct:1, explanation:"La luz viaja a unos 300.000 kilómetros por segundo en el vacío."},
       ],
       10:[
-        {q:"¿Qué partícula subatómica tiene carga negativa?", options:["Protón","Neutrón","Electrón","Fotón"], correct:2},
-        {q:"¿Qué animal es este?", image:"🦔", options:["Puercoespín","Erizo","Armadillo","Ornitorrinco"], correct:1},
+        {q:"¿Qué partícula subatómica tiene carga negativa?", options:["Protón","Neutrón","Electrón","Fotón"], correct:2, explanation:"El electrón orbita el núcleo del átomo y tiene carga eléctrica negativa."},
+        {q:"¿Qué animal es este?", image:"🦔", options:["Puercoespín","Erizo","Armadillo","Ornitorrinco"], correct:1, explanation:"El erizo se protege enroscándose y mostrando sus púas afiladas."},
       ],
       11:[
-        {q:"¿Qué elemento químico tiene el símbolo 'Fe'?", options:["Flúor","Hierro","Francio","Fósforo"], correct:1},
-        {q:"¿Qué animal es este?", image:"🦦", options:["Castor","Nutria","Marmota","Rata almizclera"], correct:1},
+        {q:"¿Qué elemento químico tiene el símbolo 'Fe'?", options:["Flúor","Hierro","Francio","Fósforo"], correct:1, explanation:"'Fe' viene del latín 'ferrum', que significa hierro."},
+        {q:"¿Qué animal es este?", image:"🦦", options:["Castor","Nutria","Marmota","Rata almizclera"], correct:1, explanation:"Las nutrias son mamíferos semiacuáticos conocidos por jugar y usar herramientas."},
       ],
       12:[
-        {q:"¿Qué capa de la Tierra, líquida, genera el campo magnético del planeta?", options:["Corteza","Manto","Núcleo externo","Núcleo interno"], correct:2},
+        {q:"¿Qué capa de la Tierra, líquida, genera el campo magnético del planeta?", options:["Corteza","Manto","Núcleo externo","Núcleo interno"], correct:2, explanation:"El núcleo externo, compuesto de hierro líquido en movimiento, genera el campo magnético terrestre."},
       ],
       13:[
-        {q:"¿Qué científico formuló la teoría de la relatividad general?", options:["Newton","Bohr","Einstein","Planck"], correct:2},
-        {q:"¿Qué animal es este?", image:"🦭", options:["Foca","León marino","Morsa","Nutria"], correct:0},
+        {q:"¿Qué científico formuló la teoría de la relatividad general?", options:["Newton","Bohr","Einstein","Planck"], correct:2, explanation:"Albert Einstein publicó la relatividad general en 1915."},
+        {q:"¿Qué animal es este?", image:"🦭", options:["Foca","León marino","Morsa","Nutria"], correct:0, explanation:"Las focas son mamíferos marinos con aletas adaptadas para nadar."},
       ],
       14:[
-        {q:"¿Qué partícula, confirmada en el CERN en 2012, se asocia al origen de la masa?", options:["Neutrino","Bosón de Higgs","Quark top","Gluón"], correct:1},
-        {q:"¿Qué animal es este?", image:"🦡", options:["Tejón","Mapache","Zorrillo","Marmota"], correct:0},
+        {q:"¿Qué partícula, confirmada en el CERN en 2012, se asocia al origen de la masa?", options:["Neutrino","Bosón de Higgs","Quark top","Gluón"], correct:1, explanation:"El bosón de Higgs explica por qué las partículas tienen masa."},
+        {q:"¿Qué animal es este?", image:"🦡", options:["Tejón","Mapache","Zorrillo","Marmota"], correct:0, explanation:"El tejón es un mamífero excavador reconocible por las rayas de su cara."},
       ],
       15:[
-        {q:"¿Qué científica ganó dos premios Nobel en categorías distintas (Física y Química)?", options:["Rosalind Franklin","Marie Curie","Ada Lovelace","Lise Meitner"], correct:1},
+        {q:"¿Qué científica ganó dos premios Nobel en categorías distintas (Física y Química)?", options:["Rosalind Franklin","Marie Curie","Ada Lovelace","Lise Meitner"], correct:1, explanation:"Marie Curie ganó el Nobel de Física en 1903 y el de Química en 1911."},
       ],
     },
     geografia: {
       1:[
-        {q:"¿Cuál es el río más largo del mundo?", options:["Nilo","Amazonas","Yangtsé","Misisipi"], correct:1},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇺🇸", options:["México","Estados Unidos","Canadá","Reino Unido"], correct:1},
+        {q:"¿Cuál es el río más largo del mundo?", options:["Nilo","Amazonas","Yangtsé","Misisipi"], correct:1, explanation:"El Amazonas es considerado el río más largo (y más caudaloso) del mundo."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇺🇸", options:["México","Estados Unidos","Canadá","Reino Unido"], correct:1, explanation:"Las barras y estrellas identifican a la bandera de Estados Unidos."},
       ],
       2:[
-        {q:"¿Cuál es el océano más grande del mundo?", options:["Atlántico","Índico","Pacífico","Ártico"], correct:2},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇧🇷", options:["Argentina","Brasil","Portugal","España"], correct:1},
-        {q:"¿Con qué país se asocia esta puerta tradicional (torii)?", image:"⛩️", options:["China","Corea del Sur","Japón","Tailandia"], correct:2},
+        {q:"¿Cuál es el océano más grande del mundo?", options:["Atlántico","Índico","Pacífico","Ártico"], correct:2, explanation:"El océano Pacífico cubre más superficie que todos los continentes juntos."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇧🇷", options:["Argentina","Brasil","Portugal","España"], correct:1, explanation:"La bandera verde y amarilla con la esfera azul es la de Brasil."},
+        {q:"¿Con qué país se asocia esta puerta tradicional (torii)?", image:"⛩️", options:["China","Corea del Sur","Japón","Tailandia"], correct:2, explanation:"El torii marca la entrada a los santuarios sintoístas japoneses."},
       ],
       3:[
-        {q:"¿Cuál es el continente más poblado?", options:["África","Asia","Europa","América"], correct:1},
+        {q:"¿Cuál es el continente más poblado?", options:["África","Asia","Europa","América"], correct:1, explanation:"Asia alberga a más de la mitad de la población mundial."},
       ],
       4:[
-        {q:"¿Qué país tiene más husos horarios?", options:["Rusia","Estados Unidos","China","Francia"], correct:3},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇯🇵", options:["China","Corea del Sur","Japón","Vietnam"], correct:2},
+        {q:"¿Qué país tiene más husos horarios?", options:["Rusia","Estados Unidos","China","Francia"], correct:3, explanation:"Francia, contando sus territorios de ultramar, abarca más husos horarios que cualquier otro país."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇯🇵", options:["China","Corea del Sur","Japón","Vietnam"], correct:2, explanation:"El círculo rojo sobre fondo blanco representa al sol naciente de Japón."},
       ],
       5:[
-        {q:"¿Cuál es el país más grande del mundo por superficie?", options:["Canadá","China","Rusia","Brasil"], correct:2},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇮🇹", options:["Francia","Italia","Irlanda","México"], correct:1},
-        {q:"¿A qué torre representa este emoji?", image:"🗼", options:["Torre Eiffel (París)","Torre de Tokio","Space Needle (Seattle)","Torre CN (Toronto)"], correct:1},
+        {q:"¿Cuál es el país más grande del mundo por superficie?", options:["Canadá","China","Rusia","Brasil"], correct:2, explanation:"Rusia es, por lejos, el país con mayor superficie del mundo."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇮🇹", options:["Francia","Italia","Irlanda","México"], correct:1, explanation:"El verde, blanco y rojo vertical identifican a la bandera italiana."},
+        {q:"¿A qué torre representa este emoji?", image:"🗼", options:["Torre Eiffel (París)","Torre de Tokio","Space Needle (Seattle)","Torre CN (Toronto)"], correct:1, explanation:"Este emoji representa específicamente a la Torre de Tokio, inspirada en la Torre Eiffel."},
       ],
       6:[
-        {q:"¿Qué país europeo tiene forma de bota?", options:["España","Italia","Grecia","Portugal"], correct:1},
+        {q:"¿Qué país europeo tiene forma de bota?", options:["España","Italia","Grecia","Portugal"], correct:1, explanation:"La silueta de Italia en el mapa recuerda a una bota."},
       ],
       7:[
-        {q:"¿Cuál es el desierto más grande del mundo (no polar)?", options:["Sahara","Gobi","Atacama","Kalahari"], correct:0},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇿🇦", options:["Sudáfrica","Kenia","Nigeria","Etiopía"], correct:0},
+        {q:"¿Cuál es el desierto más grande del mundo (no polar)?", options:["Sahara","Gobi","Atacama","Kalahari"], correct:0, explanation:"El Sahara, en el norte de África, es el desierto cálido más grande del mundo."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇿🇦", options:["Sudáfrica","Kenia","Nigeria","Etiopía"], correct:0, explanation:"La bandera de Sudáfrica combina seis colores en un diseño único en forma de Y."},
       ],
       8:[
-        {q:"¿Cuál es la montaña más alta del mundo?", options:["K2","Everest","Kilimanjaro","Aconcagua"], correct:1},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇸🇪", options:["Noruega","Suecia","Finlandia","Dinamarca"], correct:1},
-        {q:"¿Qué fenómeno geológico representa este ícono?", image:"🌋", options:["Volcán","Géiser","Glaciar","Cañón"], correct:0},
+        {q:"¿Cuál es la montaña más alta del mundo?", options:["K2","Everest","Kilimanjaro","Aconcagua"], correct:1, explanation:"El Everest, en el Himalaya, alcanza los 8.849 metros sobre el nivel del mar."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇸🇪", options:["Noruega","Suecia","Finlandia","Dinamarca"], correct:1, explanation:"La cruz amarilla sobre fondo azul identifica a la bandera sueca."},
+        {q:"¿Qué fenómeno geológico representa este ícono?", image:"🌋", options:["Volcán","Géiser","Glaciar","Cañón"], correct:0, explanation:"Un volcán se forma cuando el magma del interior de la Tierra sale a la superficie."},
       ],
       9:[
-        {q:"¿Qué línea imaginaria divide la Tierra en hemisferio norte y sur?", options:["Meridiano de Greenwich","Trópico de Cáncer","Ecuador","Círculo Polar Ártico"], correct:2},
+        {q:"¿Qué línea imaginaria divide la Tierra en hemisferio norte y sur?", options:["Meridiano de Greenwich","Trópico de Cáncer","Ecuador","Círculo Polar Ártico"], correct:2, explanation:"El Ecuador divide al planeta en dos mitades iguales, norte y sur."},
       ],
       10:[
-        {q:"¿Qué cordillera separa Europa de Asia?", options:["Alpes","Cárpatos","Urales","Pirineos"], correct:2},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇰🇷", options:["Corea del Norte","Corea del Sur","Taiwán","Japón"], correct:1},
+        {q:"¿Qué cordillera separa Europa de Asia?", options:["Alpes","Cárpatos","Urales","Pirineos"], correct:2, explanation:"Los montes Urales marcan tradicionalmente el límite entre Europa y Asia."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇰🇷", options:["Corea del Norte","Corea del Sur","Taiwán","Japón"], correct:1, explanation:"El taegeuk (círculo rojo y azul) en el centro identifica a la bandera surcoreana."},
       ],
       11:[
-        {q:"¿Cuál es el lago (mar interior) más grande del mundo?", options:["Lago Superior","Mar Caspio","Lago Victoria","Lago Baikal"], correct:1},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇬🇷", options:["Grecia","Uruguay","Israel","Argentina"], correct:0},
-        {q:"¿Qué tipo de accidente geográfico representa este ícono?", image:"🏔️", options:["Meseta","Montaña nevada","Desierto","Valle"], correct:1},
+        {q:"¿Cuál es el lago (mar interior) más grande del mundo?", options:["Lago Superior","Mar Caspio","Lago Victoria","Lago Baikal"], correct:1, explanation:"El Mar Caspio, entre Europa y Asia, es la mayor masa de agua interior del mundo."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇬🇷", options:["Grecia","Uruguay","Israel","Argentina"], correct:0, explanation:"Las franjas azules y blancas con la cruz identifican a la bandera griega."},
+        {q:"¿Qué tipo de accidente geográfico representa este ícono?", image:"🏔️", options:["Meseta","Montaña nevada","Desierto","Valle"], correct:1, explanation:"Los picos cubiertos de nieve son característicos de las montañas de gran altitud."},
       ],
       12:[
-        {q:"¿Qué país centroamericano conecta los océanos Atlántico y Pacífico mediante un canal?", options:["Costa Rica","Nicaragua","Panamá","Honduras"], correct:2},
+        {q:"¿Qué país centroamericano conecta los océanos Atlántico y Pacífico mediante un canal?", options:["Costa Rica","Nicaragua","Panamá","Honduras"], correct:2, explanation:"El Canal de Panamá conecta ambos océanos desde su inauguración en 1914."},
       ],
       13:[
-        {q:"¿Cuál es la capital de Kazajistán?", options:["Almaty","Astaná","Bishkek","Tashkent"], correct:1},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇧🇹", options:["Bután","Nepal","Mongolia","Tíbet"], correct:0},
+        {q:"¿Cuál es la capital de Kazajistán?", options:["Almaty","Astaná","Bishkek","Tashkent"], correct:1, explanation:"Astaná es la capital de Kazajistán desde 1997 (con distintos nombres a lo largo del tiempo)."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇧🇹", options:["Bután","Nepal","Mongolia","Tíbet"], correct:0, explanation:"El dragón sobre fondo naranja y amarillo identifica a la bandera de Bután."},
       ],
       14:[
-        {q:"¿Cuál es la capital de Australia?", options:["Sídney","Melbourne","Canberra","Perth"], correct:2},
-        {q:"¿A qué país pertenece esta bandera?", image:"🇱🇮", options:["Liechtenstein","Luxemburgo","Mónaco","San Marino"], correct:0},
-        {q:"¿Qué tipo de edificio religioso representa este ícono?", image:"🛕", options:["Mezquita","Sinagoga","Templo hinduista","Iglesia ortodoxa"], correct:2},
+        {q:"¿Cuál es la capital de Australia?", options:["Sídney","Melbourne","Canberra","Perth"], correct:2, explanation:"Canberra, no Sídney, es la capital de Australia."},
+        {q:"¿A qué país pertenece esta bandera?", image:"🇱🇮", options:["Liechtenstein","Luxemburgo","Mónaco","San Marino"], correct:0, explanation:"La franja azul y roja con la corona identifica a este pequeño país europeo."},
+        {q:"¿Qué tipo de edificio religioso representa este ícono?", image:"🛕", options:["Mezquita","Sinagoga","Templo hinduista","Iglesia ortodoxa"], correct:2, explanation:"Este ícono representa un templo tradicional del hinduismo."},
       ],
       15:[
-        {q:"¿Qué estrecho separa España de Marruecos?", options:["Estrecho de Ormuz","Estrecho de Gibraltar","Estrecho de Bering","Estrecho de Magallanes"], correct:1},
+        {q:"¿Qué estrecho separa España de Marruecos?", options:["Estrecho de Ormuz","Estrecho de Gibraltar","Estrecho de Bering","Estrecho de Magallanes"], correct:1, explanation:"El Estrecho de Gibraltar separa Europa de África en su punto más cercano."},
       ],
     },
     cine: {
       1:[
-        {q:"¿Qué estudio creó a Mickey Mouse?", options:["Warner Bros","Disney","Pixar","Universal"], correct:1},
+        {q:"¿Qué estudio creó a Mickey Mouse?", options:["Warner Bros","Disney","Pixar","Universal"], correct:1, explanation:"Walt Disney y Ub Iwerks crearon a Mickey Mouse en 1928."},
       ],
       2:[
-        {q:"¿En qué saga de películas aparece Luke Skywalker?", options:["Star Trek","Star Wars","Dune","Interestelar"], correct:1},
+        {q:"¿En qué saga de películas aparece Luke Skywalker?", options:["Star Trek","Star Wars","Dune","Interestelar"], correct:1, explanation:"Luke Skywalker es el protagonista de la trilogía original de Star Wars."},
       ],
       3:[
-        {q:"¿Qué animal es el protagonista de 'El Rey León'?", options:["Tigre","León","Leopardo","Guepardo"], correct:1},
+        {q:"¿Qué animal es el protagonista de 'El Rey León'?", options:["Tigre","León","Leopardo","Guepardo"], correct:1, explanation:"Simba, el protagonista, es un león."},
       ],
       4:[
-        {q:"¿Quién dirigió la trilogía original de 'El Señor de los Anillos'?", options:["James Cameron","Peter Jackson","Ridley Scott","Christopher Nolan"], correct:1},
+        {q:"¿Quién dirigió la trilogía original de 'El Señor de los Anillos'?", options:["James Cameron","Peter Jackson","Ridley Scott","Christopher Nolan"], correct:1, explanation:"Peter Jackson dirigió la trilogía basada en los libros de Tolkien."},
       ],
       5:[
-        {q:"¿Quién interpretó a Iron Man en el universo cinematográfico de Marvel?", options:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"], correct:2},
+        {q:"¿Quién interpretó a Iron Man en el universo cinematográfico de Marvel?", options:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"], correct:2, explanation:"Robert Downey Jr. dio vida a Tony Stark / Iron Man desde 2008."},
       ],
       6:[
-        {q:"¿En qué serie aparecen los Siete Reinos de Poniente?", options:["Vikingos","Juego de Tronos","The Witcher","Los Anillos de Poder"], correct:1},
+        {q:"¿En qué serie aparecen los Siete Reinos de Poniente?", options:["Vikingos","Juego de Tronos","The Witcher","Los Anillos de Poder"], correct:1, explanation:"Poniente es el escenario principal de 'Juego de Tronos'."},
       ],
       7:[
-        {q:"¿Qué película ganó el Óscar a Mejor Película en 2020 (ceremonia)?", options:["1917","Joker","Parásitos","Once Upon a Time in Hollywood"], correct:2},
+        {q:"¿Qué película ganó el Óscar a Mejor Película en 2020 (ceremonia)?", options:["1917","Joker","Parásitos","Once Upon a Time in Hollywood"], correct:2, explanation:"'Parásitos', de Bong Joon-ho, fue la primera película no inglesa en ganar ese Óscar."},
       ],
       8:[
-        {q:"¿Qué director creó 'Jurassic Park' y 'E.T.'?", options:["George Lucas","Steven Spielberg","James Cameron","Robert Zemeckis"], correct:1},
+        {q:"¿Qué director creó 'Jurassic Park' y 'E.T.'?", options:["George Lucas","Steven Spielberg","James Cameron","Robert Zemeckis"], correct:1, explanation:"Steven Spielberg dirigió ambos clásicos del cine."},
       ],
       9:[
-        {q:"¿En qué serie de Netflix compiten personas endeudadas en juegos infantiles mortales?", options:["Élite","El juego del calamar","Dark","Money Heist"], correct:1},
+        {q:"¿En qué serie de Netflix compiten personas endeudadas en juegos infantiles mortales?", options:["Élite","El juego del calamar","Dark","Money Heist"], correct:1, explanation:"'El juego del calamar' se convirtió en un fenómeno global de Netflix."},
       ],
       10:[
-        {q:"¿Quién compuso la banda sonora original de 'Star Wars'?", options:["Hans Zimmer","John Williams","Danny Elfman","Alan Silvestri"], correct:1},
+        {q:"¿Quién compuso la banda sonora original de 'Star Wars'?", options:["Hans Zimmer","John Williams","Danny Elfman","Alan Silvestri"], correct:1, explanation:"John Williams compuso la icónica música de la saga."},
       ],
       11:[
-        {q:"¿Qué actor interpretó al Joker en la película de 2019?", options:["Jared Leto","Heath Ledger","Joaquin Phoenix","Jack Nicholson"], correct:2},
+        {q:"¿Qué actor interpretó al Joker en la película de 2019?", options:["Jared Leto","Heath Ledger","Joaquin Phoenix","Jack Nicholson"], correct:2, explanation:"Joaquin Phoenix ganó el Óscar por su interpretación del Joker."},
       ],
       12:[
-        {q:"¿Qué estudio de animación creó 'Toy Story'?", options:["DreamWorks","Pixar","Illumination","Blue Sky"], correct:1},
+        {q:"¿Qué estudio de animación creó 'Toy Story'?", options:["DreamWorks","Pixar","Illumination","Blue Sky"], correct:1, explanation:"Pixar revolucionó la animación con 'Toy Story' en 1995."},
       ],
       13:[
-        {q:"¿Qué director es conocido por su uso recurrente de estructuras narrativas no lineales, como en 'Pulp Fiction'?", options:["Wes Anderson","Quentin Tarantino","David Fincher","Coen Brothers"], correct:1},
+        {q:"¿Qué director es conocido por su uso recurrente de estructuras narrativas no lineales, como en 'Pulp Fiction'?", options:["Wes Anderson","Quentin Tarantino","David Fincher","Coen Brothers"], correct:1, explanation:"Quentin Tarantino es reconocido por sus tramas no cronológicas."},
       ],
       14:[
-        {q:"¿Qué director es conocido por su estilo visual simétrico en películas como 'The Grand Budapest Hotel'?", options:["Tim Burton","Wes Anderson","Guillermo del Toro","Sofia Coppola"], correct:1},
+        {q:"¿Qué director es conocido por su estilo visual simétrico en películas como 'The Grand Budapest Hotel'?", options:["Tim Burton","Wes Anderson","Guillermo del Toro","Sofia Coppola"], correct:1, explanation:"Wes Anderson tiene un estilo visual muy particular, con simetría y colores pastel."},
       ],
       15:[
-        {q:"¿Qué actriz ganó el Óscar a mejor actriz por 'La La Land' (2017)?", options:["Natalie Portman","Emma Stone","Jennifer Lawrence","Meryl Streep"], correct:1},
+        {q:"¿Qué actriz ganó el Óscar a mejor actriz por 'La La Land' (2017)?", options:["Natalie Portman","Emma Stone","Jennifer Lawrence","Meryl Streep"], correct:1, explanation:"Emma Stone ganó el Óscar a mejor actriz por su papel en 'La La Land'."},
       ],
     },
     deportes: {
       1:[
-        {q:"¿Cada cuántos años se celebran los Juegos Olímpicos de verano?", options:["2","3","4","5"], correct:2},
+        {q:"¿Cada cuántos años se celebran los Juegos Olímpicos de verano?", options:["2","3","4","5"], correct:2, explanation:"Los Juegos Olímpicos de verano se celebran cada 4 años."},
       ],
       2:[
-        {q:"¿Cuántos jugadores tiene un equipo de fútbol en el campo (sin suplentes)?", options:["9","10","11","12"], correct:2},
+        {q:"¿Cuántos jugadores tiene un equipo de fútbol en el campo (sin suplentes)?", options:["9","10","11","12"], correct:2, explanation:"Cada equipo de fútbol juega con 11 jugadores en la cancha."},
       ],
       3:[
-        {q:"¿En qué deporte se usan los términos 'birdie' y 'bogey'?", options:["Tenis","Golf","Béisbol","Cricket"], correct:1},
+        {q:"¿En qué deporte se usan los términos 'birdie' y 'bogey'?", options:["Tenis","Golf","Béisbol","Cricket"], correct:1, explanation:"En el golf, estos términos indican anotar por debajo o por encima del par."},
       ],
       4:[
-        {q:"¿En qué deporte se usa el término 'ace'?", options:["Fútbol","Tenis","Boxeo","Golf"], correct:1},
+        {q:"¿En qué deporte se usa el término 'ace'?", options:["Fútbol","Tenis","Boxeo","Golf"], correct:1, explanation:"En tenis, un 'ace' es un saque directo que el rival no puede tocar."},
       ],
       5:[
-        {q:"¿Cuántos puntos vale un touchdown en fútbol americano (sin conversión)?", options:["3","6","7","9"], correct:1},
+        {q:"¿Cuántos puntos vale un touchdown en fútbol americano (sin conversión)?", options:["3","6","7","9"], correct:1, explanation:"Un touchdown vale 6 puntos, antes de intentar la conversión."},
       ],
       6:[
-        {q:"¿En qué país se originó el judo?", options:["China","Corea","Japón","Tailandia"], correct:2},
+        {q:"¿En qué país se originó el judo?", options:["China","Corea","Japón","Tailandia"], correct:2, explanation:"El judo fue creado en Japón por Jigoro Kano en 1882."},
       ],
       7:[
-        {q:"¿Qué país ha ganado más Copas del Mundo de fútbol masculino?", options:["Alemania","Argentina","Brasil","Italia"], correct:2},
+        {q:"¿Qué país ha ganado más Copas del Mundo de fútbol masculino?", options:["Alemania","Argentina","Brasil","Italia"], correct:2, explanation:"Brasil ha ganado 5 Copas del Mundo, más que cualquier otro país."},
       ],
       8:[
-        {q:"¿Qué país ganó el Mundial de fútbol de 2022?", options:["Francia","Brasil","Argentina","Croacia"], correct:2},
+        {q:"¿Qué país ganó el Mundial de fútbol de 2022?", options:["Francia","Brasil","Argentina","Croacia"], correct:2, explanation:"Argentina se coronó campeona del Mundial de Qatar 2022."},
       ],
       9:[
-        {q:"¿Cuántos anillos tiene la bandera olímpica?", options:["4","5","6","7"], correct:1},
+        {q:"¿Cuántos anillos tiene la bandera olímpica?", options:["4","5","6","7"], correct:1, explanation:"Los 5 anillos representan a los cinco continentes participantes."},
       ],
       10:[
-        {q:"¿Cuántos jugadores tiene un equipo de básquetbol en cancha?", options:["4","5","6","7"], correct:1},
+        {q:"¿Cuántos jugadores tiene un equipo de básquetbol en cancha?", options:["4","5","6","7"], correct:1, explanation:"Cada equipo de básquetbol juega con 5 jugadores en cancha."},
       ],
       11:[
-        {q:"¿Qué tenista acumulaba más títulos de Grand Slam masculinos hacia 2023?", options:["Roger Federer","Rafael Nadal","Novak Djokovic","Andy Murray"], correct:2},
+        {q:"¿Qué tenista acumulaba más títulos de Grand Slam masculinos hacia 2023?", options:["Roger Federer","Rafael Nadal","Novak Djokovic","Andy Murray"], correct:2, explanation:"Novak Djokovic superó a Federer y Nadal en el conteo de Grand Slams."},
       ],
       12:[
-        {q:"¿Qué país organizó los Juegos Olímpicos de verano de 2016?", options:["China","Reino Unido","Brasil","Japón"], correct:2},
+        {q:"¿Qué país organizó los Juegos Olímpicos de verano de 2016?", options:["China","Reino Unido","Brasil","Japón"], correct:2, explanation:"Río de Janeiro, Brasil, fue sede de los Juegos Olímpicos de 2016."},
       ],
       13:[
-        {q:"¿En qué año se celebraron los primeros Juegos Olímpicos modernos?", options:["1886","1896","1900","1912"], correct:1},
+        {q:"¿En qué año se celebraron los primeros Juegos Olímpicos modernos?", options:["1886","1896","1900","1912"], correct:1, explanation:"Los primeros Juegos Olímpicos modernos se celebraron en Atenas en 1896."},
       ],
       14:[
-        {q:"¿Quién es considerado el fundador de los Juegos Olímpicos modernos?", options:["Avery Brundage","Pierre de Coubertin","Juan Antonio Samaranch","Thomas Bach"], correct:1},
+        {q:"¿Quién es considerado el fundador de los Juegos Olímpicos modernos?", options:["Avery Brundage","Pierre de Coubertin","Juan Antonio Samaranch","Thomas Bach"], correct:1, explanation:"El barón Pierre de Coubertin impulsó la creación de los Juegos Olímpicos modernos."},
       ],
       15:[
-        {q:"¿Qué boxeador es conocido por la frase 'Flota como mariposa, pica como abeja'?", options:["Mike Tyson","Muhammad Ali","George Foreman","Joe Frazier"], correct:1},
+        {q:"¿Qué boxeador es conocido por la frase 'Flota como mariposa, pica como abeja'?", options:["Mike Tyson","Muhammad Ali","George Foreman","Joe Frazier"], correct:1, explanation:"Muhammad Ali es célebre por esta frase y su estilo de boxeo ágil."},
       ],
     },
     arte: {
       1:[
-        {q:"¿Quién pintó la Mona Lisa?", options:["Miguel Ángel","Rafael","Leonardo da Vinci","Donatello"], correct:2},
+        {q:"¿Quién pintó la Mona Lisa?", options:["Miguel Ángel","Rafael","Leonardo da Vinci","Donatello"], correct:2, explanation:"Leonardo da Vinci pintó la Mona Lisa a principios del siglo XVI."},
       ],
       2:[
-        {q:"¿Qué instrumento musical tiene teclas blancas y negras?", options:["Violín","Piano","Flauta","Arpa"], correct:1},
+        {q:"¿Qué instrumento musical tiene teclas blancas y negras?", options:["Violín","Piano","Flauta","Arpa"], correct:1, explanation:"El piano combina teclas blancas y negras para producir sus notas."},
       ],
       3:[
-        {q:"¿Quién pintó 'La noche estrellada'?", options:["Monet","Van Gogh","Cézanne","Renoir"], correct:1},
+        {q:"¿Quién pintó 'La noche estrellada'?", options:["Monet","Van Gogh","Cézanne","Renoir"], correct:1, explanation:"Vincent van Gogh pintó esta obra en 1889."},
       ],
       4:[
-        {q:"¿A qué movimiento artístico pertenece Salvador Dalí?", options:["Cubismo","Surrealismo","Impresionismo","Barroco"], correct:1},
+        {q:"¿A qué movimiento artístico pertenece Salvador Dalí?", options:["Cubismo","Surrealismo","Impresionismo","Barroco"], correct:1, explanation:"Dalí es uno de los máximos exponentes del surrealismo."},
       ],
       5:[
-        {q:"¿Qué pintor español es conocido por su obra 'Guernica'?", options:["Dalí","Miró","Picasso","Velázquez"], correct:2},
+        {q:"¿Qué pintor español es conocido por su obra 'Guernica'?", options:["Dalí","Miró","Picasso","Velázquez"], correct:2, explanation:"Pablo Picasso pintó 'Guernica' en 1937 como protesta contra la guerra."},
       ],
       6:[
-        {q:"¿Qué museo de París alberga la Mona Lisa?", options:["Museo de Orsay","El Louvre","Centro Pompidou","Petit Palais"], correct:1},
+        {q:"¿Qué museo de París alberga la Mona Lisa?", options:["Museo de Orsay","El Louvre","Centro Pompidou","Petit Palais"], correct:1, explanation:"La Mona Lisa se exhibe en el Museo del Louvre, en París."},
       ],
       7:[
-        {q:"¿Qué escultura de mármol representa a un joven bíblico, obra de Miguel Ángel?", options:["El Pensador","David","La Piedad","El Moisés"], correct:1},
+        {q:"¿Qué escultura de mármol representa a un joven bíblico, obra de Miguel Ángel?", options:["El Pensador","David","La Piedad","El Moisés"], correct:1, explanation:"El 'David' de Miguel Ángel representa al héroe bíblico antes de enfrentar a Goliat."},
       ],
       8:[
-        {q:"¿Qué compositor alemán, sordo en sus últimos años, escribió la Novena Sinfonía?", options:["Mozart","Bach","Beethoven","Brahms"], correct:2},
+        {q:"¿Qué compositor alemán, sordo en sus últimos años, escribió la Novena Sinfonía?", options:["Mozart","Bach","Beethoven","Brahms"], correct:2, explanation:"Ludwig van Beethoven compuso su Novena Sinfonía estando prácticamente sordo."},
       ],
       9:[
-        {q:"¿Qué técnica pictórica usa puntos de color puro, asociada a Georges Seurat?", options:["Fauvismo","Puntillismo","Cubismo","Art Nouveau"], correct:1},
+        {q:"¿Qué técnica pictórica usa puntos de color puro, asociada a Georges Seurat?", options:["Fauvismo","Puntillismo","Cubismo","Art Nouveau"], correct:1, explanation:"El puntillismo construye imágenes a partir de pequeños puntos de color."},
       ],
       10:[
-        {q:"¿Qué pintora mexicana es conocida por sus autorretratos y su relación con Diego Rivera?", options:["Rufino Tamayo","José Clemente Orozco","Frida Kahlo","David Alfaro Siqueiros"], correct:2},
+        {q:"¿Qué pintora mexicana es conocida por sus autorretratos y su relación con Diego Rivera?", options:["Rufino Tamayo","José Clemente Orozco","Frida Kahlo","David Alfaro Siqueiros"], correct:2, explanation:"Frida Kahlo es célebre por sus autorretratos cargados de simbolismo."},
       ],
       11:[
-        {q:"¿Qué arquitecto catalán diseñó la Sagrada Familia en Barcelona?", options:["Antoni Gaudí","Rafael Moneo","Santiago Calatrava","Ricardo Bofill"], correct:0},
+        {q:"¿Qué arquitecto catalán diseñó la Sagrada Familia en Barcelona?", options:["Antoni Gaudí","Rafael Moneo","Santiago Calatrava","Ricardo Bofill"], correct:0, explanation:"Antoni Gaudí dedicó gran parte de su vida a esta obra inconclusa."},
       ],
       12:[
-        {q:"¿Qué movimiento del siglo XX, liderado por Picasso y Braque, usa formas geométricas y múltiples perspectivas?", options:["Fauvismo","Cubismo","Dadaísmo","Futurismo"], correct:1},
+        {q:"¿Qué movimiento del siglo XX, liderado por Picasso y Braque, usa formas geométricas y múltiples perspectivas?", options:["Fauvismo","Cubismo","Dadaísmo","Futurismo"], correct:1, explanation:"El cubismo descompone los objetos en formas geométricas desde varios ángulos."},
       ],
       13:[
-        {q:"¿Qué corriente artística, liderada por Monet, se caracteriza por captar la luz y el instante?", options:["Expresionismo","Impresionismo","Fauvismo","Puntillismo"], correct:1},
+        {q:"¿Qué corriente artística, liderada por Monet, se caracteriza por captar la luz y el instante?", options:["Expresionismo","Impresionismo","Fauvismo","Puntillismo"], correct:1, explanation:"El impresionismo buscaba capturar la luz y el momento fugaz."},
       ],
       14:[
-        {q:"¿Qué escultura griega sin brazos, hallada en Milos, es una obra famosa del Louvre?", options:["Venus de Milo","Nike de Samotracia","Laocoonte","El Discóbolo"], correct:0},
+        {q:"¿Qué escultura griega sin brazos, hallada en Milos, es una obra famosa del Louvre?", options:["Venus de Milo","Nike de Samotracia","Laocoonte","El Discóbolo"], correct:0, explanation:"La Venus de Milo es una de las esculturas griegas más famosas del mundo."},
       ],
       15:[
-        {q:"¿Qué artista italiano pintó el techo de la Capilla Sixtina?", options:["Rafael","Leonardo da Vinci","Miguel Ángel","Botticelli"], correct:2},
+        {q:"¿Qué artista italiano pintó el techo de la Capilla Sixtina?", options:["Rafael","Leonardo da Vinci","Miguel Ángel","Botticelli"], correct:2, explanation:"Miguel Ángel pintó el techo de la Capilla Sixtina entre 1508 y 1512."},
       ],
     },
     musica: {
       1:[
-        {q:"¿Cuántas cuerdas tiene una guitarra clásica estándar?", options:["4","5","6","7"], correct:2},
+        {q:"¿Cuántas cuerdas tiene una guitarra clásica estándar?", options:["4","5","6","7"], correct:2, explanation:"La guitarra clásica estándar tiene 6 cuerdas."},
       ],
       2:[
-        {q:"¿Qué banda británica de los años 60 compuso 'Hey Jude'?", options:["The Rolling Stones","The Beatles","The Who","Pink Floyd"], correct:1},
+        {q:"¿Qué banda británica de los años 60 compuso 'Hey Jude'?", options:["The Rolling Stones","The Beatles","The Who","Pink Floyd"], correct:1, explanation:"The Beatles lanzaron 'Hey Jude' en 1968."},
       ],
       3:[
-        {q:"¿Cuántas líneas tiene un pentagrama musical?", options:["4","5","6","7"], correct:1},
+        {q:"¿Cuántas líneas tiene un pentagrama musical?", options:["4","5","6","7"], correct:1, explanation:"El pentagrama tiene 5 líneas horizontales donde se escriben las notas."},
       ],
       4:[
-        {q:"¿Qué cantante colombiana es conocida por 'Waka Waka'?", options:["Shakira","Karol G","J Balvin","Maluma"], correct:0},
+        {q:"¿Qué cantante colombiana es conocida por 'Waka Waka'?", options:["Shakira","Karol G","J Balvin","Maluma"], correct:0, explanation:"Shakira interpretó 'Waka Waka', himno del Mundial 2010."},
       ],
       5:[
-        {q:"¿Qué género musical se originó en Jamaica en los años 60?", options:["Reggae","Salsa","Blues","Flamenco"], correct:0},
+        {q:"¿Qué género musical se originó en Jamaica en los años 60?", options:["Reggae","Salsa","Blues","Flamenco"], correct:0, explanation:"El reggae nació en Jamaica y Bob Marley fue su máximo exponente."},
       ],
       6:[
-        {q:"¿Qué instrumento de viento usa una boquilla de caña doble?", options:["Flauta","Oboe","Trompeta","Clarinete"], correct:1},
+        {q:"¿Qué instrumento de viento usa una boquilla de caña doble?", options:["Flauta","Oboe","Trompeta","Clarinete"], correct:1, explanation:"El oboe se toca con una boquilla de doble lengüeta."},
       ],
       7:[
-        {q:"¿Qué compositor austríaco escribió 'Las bodas de Fígaro'?", options:["Beethoven","Mozart","Haydn","Schubert"], correct:1},
+        {q:"¿Qué compositor austríaco escribió 'Las bodas de Fígaro'?", options:["Beethoven","Mozart","Haydn","Schubert"], correct:1, explanation:"Wolfgang Amadeus Mozart compuso esta ópera en 1786."},
       ],
       8:[
-        {q:"¿Qué artista puertorriqueño es conocido como 'El Conejo Malo'?", options:["Daddy Yankee","Bad Bunny","Ozuna","Anuel AA"], correct:1},
+        {q:"¿Qué artista puertorriqueño es conocido como 'El Conejo Malo'?", options:["Daddy Yankee","Bad Bunny","Ozuna","Anuel AA"], correct:1, explanation:"Bad Bunny es uno de los artistas urbanos más escuchados del mundo."},
       ],
       9:[
-        {q:"¿Qué banda de rock formaron Freddie Mercury, Brian May, Roger Taylor y John Deacon?", options:["Led Zeppelin","Queen","The Who","Deep Purple"], correct:1},
+        {q:"¿Qué banda de rock formaron Freddie Mercury, Brian May, Roger Taylor y John Deacon?", options:["Led Zeppelin","Queen","The Who","Deep Purple"], correct:1, explanation:"Queen se formó en Londres en 1970."},
       ],
       10:[
-        {q:"¿Qué cantante estadounidense es conocida como 'La Reina del Pop'?", options:["Madonna","Cher","Whitney Houston","Mariah Carey"], correct:0},
+        {q:"¿Qué cantante estadounidense es conocida como 'La Reina del Pop'?", options:["Madonna","Cher","Whitney Houston","Mariah Carey"], correct:0, explanation:"Madonna recibió este apodo por su influencia en la música pop."},
       ],
       11:[
-        {q:"¿Qué escala musical de 7 notas es la base de la música occidental?", options:["Pentatónica","Diatónica","Cromática","Dodecafónica"], correct:1},
+        {q:"¿Qué escala musical de 7 notas es la base de la música occidental?", options:["Pentatónica","Diatónica","Cromática","Dodecafónica"], correct:1, explanation:"La escala diatónica de 7 notas es la base de la música occidental."},
       ],
       12:[
-        {q:"¿En qué década surgió el hip hop en Estados Unidos?", options:["1960s","1970s","1980s","1990s"], correct:1},
+        {q:"¿En qué década surgió el hip hop en Estados Unidos?", options:["1960s","1970s","1980s","1990s"], correct:1, explanation:"El hip hop surgió en el Bronx, Nueva York, durante los años 70."},
       ],
       13:[
-        {q:"¿Qué compositor ruso escribió 'El lago de los cisnes'?", options:["Stravinsky","Tchaikovsky","Rachmaninoff","Prokofiev"], correct:1},
+        {q:"¿Qué compositor ruso escribió 'El lago de los cisnes'?", options:["Stravinsky","Tchaikovsky","Rachmaninoff","Prokofiev"], correct:1, explanation:"Piotr Ilich Tchaikovsky compuso este famoso ballet en 1876."},
       ],
       14:[
-        {q:"¿Qué término musical italiano indica que una pieza debe tocarse muy despacio?", options:["Allegro","Adagio","Presto","Andante"], correct:1},
+        {q:"¿Qué término musical italiano indica que una pieza debe tocarse muy despacio?", options:["Allegro","Adagio","Presto","Andante"], correct:1, explanation:"'Adagio' indica un tempo lento y tranquilo."},
       ],
       15:[
-        {q:"¿Qué compositor barroco alemán compuso las 'Variaciones Goldberg'?", options:["Handel","Vivaldi","Bach","Telemann"], correct:2},
+        {q:"¿Qué compositor barroco alemán compuso las 'Variaciones Goldberg'?", options:["Handel","Vivaldi","Bach","Telemann"], correct:2, explanation:"Johann Sebastian Bach compuso esta obra maestra para clave."},
       ],
     },
     literatura: {
       1:[
-        {q:"¿Quién escribió 'Don Quijote de la Mancha'?", options:["Lope de Vega","Miguel de Cervantes","Calderón de la Barca","Garcilaso"], correct:1},
+        {q:"¿Quién escribió 'Don Quijote de la Mancha'?", options:["Lope de Vega","Miguel de Cervantes","Calderón de la Barca","Garcilaso"], correct:1, explanation:"Miguel de Cervantes publicó esta obra cumbre de la literatura en español."},
       ],
       2:[
-        {q:"¿Qué famoso mago creó J.K. Rowling?", options:["Harry Potter","Percy Jackson","Frodo","Aragorn"], correct:0},
+        {q:"¿Qué famoso mago creó J.K. Rowling?", options:["Harry Potter","Percy Jackson","Frodo","Aragorn"], correct:0, explanation:"J.K. Rowling creó a Harry Potter, protagonista de su saga de fantasía."},
       ],
       3:[
-        {q:"¿Cuántos libros tiene tradicionalmente una trilogía?", options:["2","3","4","5"], correct:1},
+        {q:"¿Cuántos libros tiene tradicionalmente una trilogía?", options:["2","3","4","5"], correct:1, explanation:"Una trilogía se compone, por definición, de tres obras."},
       ],
       4:[
-        {q:"¿Qué escritor colombiano escribió 'Cien años de soledad'?", options:["Mario Vargas Llosa","Gabriel García Márquez","Julio Cortázar","Pablo Neruda"], correct:1},
+        {q:"¿Qué escritor colombiano escribió 'Cien años de soledad'?", options:["Mario Vargas Llosa","Gabriel García Márquez","Julio Cortázar","Pablo Neruda"], correct:1, explanation:"Gabriel García Márquez ganó el Nobel y es referente del realismo mágico."},
       ],
       5:[
-        {q:"¿Qué género literario usa versos y métrica?", options:["Narrativa","Ensayo","Poesía","Drama"], correct:2},
+        {q:"¿Qué género literario usa versos y métrica?", options:["Narrativa","Ensayo","Poesía","Drama"], correct:2, explanation:"La poesía se caracteriza por el uso de versos, ritmo y métrica."},
       ],
       6:[
-        {q:"¿Quién escribió 'Romeo y Julieta'?", options:["Charles Dickens","William Shakespeare","Oscar Wilde","Jane Austen"], correct:1},
+        {q:"¿Quién escribió 'Romeo y Julieta'?", options:["Charles Dickens","William Shakespeare","Oscar Wilde","Jane Austen"], correct:1, explanation:"William Shakespeare escribió esta tragedia a fines del siglo XVI."},
       ],
       7:[
-        {q:"¿Qué escritora chilena escribió 'La casa de los espíritus'?", options:["Isabel Allende","Gabriela Mistral","Marcela Serrano","Alejandra Costamagna"], correct:0},
+        {q:"¿Qué escritora chilena escribió 'La casa de los espíritus'?", options:["Isabel Allende","Gabriela Mistral","Marcela Serrano","Alejandra Costamagna"], correct:0, explanation:"Isabel Allende publicó esta novela en 1982."},
       ],
       8:[
-        {q:"¿Qué movimiento literario latinoamericano mezcla lo fantástico con lo cotidiano?", options:["Realismo Sucio","Realismo Mágico","Costumbrismo","Modernismo"], correct:1},
+        {q:"¿Qué movimiento literario latinoamericano mezcla lo fantástico con lo cotidiano?", options:["Realismo Sucio","Realismo Mágico","Costumbrismo","Modernismo"], correct:1, explanation:"El realismo mágico combina elementos fantásticos con la vida cotidiana."},
       ],
       9:[
-        {q:"¿Qué poeta chileno ganó el Premio Nobel de Literatura en 1971?", options:["Pablo Neruda","Nicanor Parra","Gabriela Mistral","Vicente Huidobro"], correct:0},
+        {q:"¿Qué poeta chileno ganó el Premio Nobel de Literatura en 1971?", options:["Pablo Neruda","Nicanor Parra","Gabriela Mistral","Vicente Huidobro"], correct:0, explanation:"Pablo Neruda recibió el Nobel de Literatura en 1971."},
       ],
       10:[
-        {q:"¿Qué novela de Dostoyevski narra el crimen de Raskólnikov?", options:["Los hermanos Karamázov","Crimen y castigo","El idiota","Guerra y paz"], correct:1},
+        {q:"¿Qué novela de Dostoyevski narra el crimen de Raskólnikov?", options:["Los hermanos Karamázov","Crimen y castigo","El idiota","Guerra y paz"], correct:1, explanation:"'Crimen y castigo' narra el asesinato cometido por Raskólnikov y su culpa posterior."},
       ],
       11:[
-        {q:"¿Quién escribió '1984' y 'Rebelión en la granja'?", options:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"], correct:1},
+        {q:"¿Quién escribió '1984' y 'Rebelión en la granja'?", options:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"], correct:1, explanation:"George Orwell escribió ambas críticas al totalitarismo."},
       ],
       12:[
-        {q:"¿Qué autor mexicano escribió 'Pedro Páramo'?", options:["Octavio Paz","Juan Rulfo","Carlos Fuentes","Juan José Arreola"], correct:1},
+        {q:"¿Qué autor mexicano escribió 'Pedro Páramo'?", options:["Octavio Paz","Juan Rulfo","Carlos Fuentes","Juan José Arreola"], correct:1, explanation:"Juan Rulfo publicó esta influyente novela en 1955."},
       ],
       13:[
-        {q:"¿Qué escritor argentino es conocido por el concepto de 'La Biblioteca de Babel'?", options:["Julio Cortázar","Jorge Luis Borges","Adolfo Bioy Casares","Ernesto Sabato"], correct:1},
+        {q:"¿Qué escritor argentino es conocido por el concepto de 'La Biblioteca de Babel'?", options:["Julio Cortázar","Jorge Luis Borges","Adolfo Bioy Casares","Ernesto Sabato"], correct:1, explanation:"Jorge Luis Borges escribió este famoso cuento sobre una biblioteca infinita."},
       ],
       14:[
-        {q:"¿Qué novela de James Joyce, ambientada en un solo día en Dublín, es célebre por su dificultad?", options:["Retrato del artista adolescente","Ulises","Finnegans Wake","Dublineses"], correct:1},
+        {q:"¿Qué novela de James Joyce, ambientada en un solo día en Dublín, es célebre por su dificultad?", options:["Retrato del artista adolescente","Ulises","Finnegans Wake","Dublineses"], correct:1, explanation:"'Ulises' transcurre en un solo día y es considerada una de las novelas más complejas."},
       ],
       15:[
-        {q:"¿Qué escritora inglesa escribió 'Mrs Dalloway' y 'Al faro' con técnica de flujo de conciencia?", options:["Jane Austen","Virginia Woolf","Emily Brontë","Agatha Christie"], correct:1},
+        {q:"¿Qué escritora inglesa escribió 'Mrs Dalloway' y 'Al faro' con técnica de flujo de conciencia?", options:["Jane Austen","Virginia Woolf","Emily Brontë","Agatha Christie"], correct:1, explanation:"Virginia Woolf fue pionera en la técnica narrativa del flujo de conciencia."},
       ],
     },
     tecnologia: {
       1:[
-        {q:"¿Qué empresa creó el iPhone?", options:["Samsung","Apple","Google","Microsoft"], correct:1},
+        {q:"¿Qué empresa creó el iPhone?", options:["Samsung","Apple","Google","Microsoft"], correct:1, explanation:"Apple lanzó el primer iPhone en 2007."},
       ],
       2:[
-        {q:"¿Qué significa 'www' en una dirección de internet?", options:["World Wide Web","World Web Wide","Wide World Web","Web World Wide"], correct:0},
+        {q:"¿Qué significa 'www' en una dirección de internet?", options:["World Wide Web","World Web Wide","Wide World Web","Web World Wide"], correct:0, explanation:"'www' significa 'World Wide Web', la red mundial de páginas web."},
       ],
       3:[
-        {q:"¿Qué dispositivo se usa para mover el cursor en una computadora de escritorio?", options:["Teclado","Mouse","Monitor","Parlante"], correct:1},
+        {q:"¿Qué dispositivo se usa para mover el cursor en una computadora de escritorio?", options:["Teclado","Mouse","Monitor","Parlante"], correct:1, explanation:"El mouse permite mover el cursor y hacer clic en la pantalla."},
       ],
       4:[
-        {q:"¿Qué red social fue fundada por Mark Zuckerberg?", options:["Twitter","Facebook","Instagram","LinkedIn"], correct:1},
+        {q:"¿Qué red social fue fundada por Mark Zuckerberg?", options:["Twitter","Facebook","Instagram","LinkedIn"], correct:1, explanation:"Mark Zuckerberg fundó Facebook en 2004."},
       ],
       5:[
-        {q:"¿Qué significa la sigla 'IA'?", options:["Internet Avanzado","Inteligencia Artificial","Informática Aplicada","Interfaz Automática"], correct:1},
+        {q:"¿Qué significa la sigla 'IA'?", options:["Internet Avanzado","Inteligencia Artificial","Informática Aplicada","Interfaz Automática"], correct:1, explanation:"'IA' significa Inteligencia Artificial."},
       ],
       6:[
-        {q:"¿Qué compañía desarrolla el sistema operativo Android?", options:["Apple","Google","Microsoft","Amazon"], correct:1},
+        {q:"¿Qué compañía desarrolla el sistema operativo Android?", options:["Apple","Google","Microsoft","Amazon"], correct:1, explanation:"Google desarrolla y mantiene el sistema operativo Android."},
       ],
       7:[
-        {q:"¿Qué lenguaje se usa junto con HTML y CSS para el 'front-end' de una web?", options:["Python","JavaScript","C++","Swift"], correct:1},
+        {q:"¿Qué lenguaje se usa junto con HTML y CSS para el 'front-end' de una web?", options:["Python","JavaScript","C++","Swift"], correct:1, explanation:"JavaScript agrega interactividad a las páginas web, junto con HTML y CSS."},
       ],
       8:[
-        {q:"¿Qué empresa fabrica los procesadores Ryzen?", options:["Intel","AMD","Nvidia","Qualcomm"], correct:1},
+        {q:"¿Qué empresa fabrica los procesadores Ryzen?", options:["Intel","AMD","Nvidia","Qualcomm"], correct:1, explanation:"AMD fabrica la línea de procesadores Ryzen."},
       ],
       9:[
-        {q:"¿Qué significa la sigla 'USB'?", options:["Universal System Bus","Universal Serial Bus","United Serial Board","Universal Storage Bus"], correct:1},
+        {q:"¿Qué significa la sigla 'USB'?", options:["Universal System Bus","Universal Serial Bus","United Serial Board","Universal Storage Bus"], correct:1, explanation:"'USB' significa 'Universal Serial Bus', un estándar de conexión."},
       ],
       10:[
-        {q:"¿Quién cofundó Microsoft junto a Bill Gates?", options:["Steve Jobs","Paul Allen","Larry Page","Jeff Bezos"], correct:1},
+        {q:"¿Quién cofundó Microsoft junto a Bill Gates?", options:["Steve Jobs","Paul Allen","Larry Page","Jeff Bezos"], correct:1, explanation:"Paul Allen cofundó Microsoft junto a Bill Gates en 1975."},
       ],
       11:[
-        {q:"¿Qué tecnología permite conectarse a internet sin cables?", options:["Bluetooth","Wi-Fi","USB","Ethernet"], correct:1},
+        {q:"¿Qué tecnología permite conectarse a internet sin cables?", options:["Bluetooth","Wi-Fi","USB","Ethernet"], correct:1, explanation:"El Wi-Fi permite la conexión inalámbrica a internet."},
       ],
       12:[
-        {q:"¿Qué empresa creó el modelo de lenguaje ChatGPT?", options:["Google","OpenAI","Meta","Anthropic"], correct:1},
+        {q:"¿Qué empresa creó el modelo de lenguaje ChatGPT?", options:["Google","OpenAI","Meta","Anthropic"], correct:1, explanation:"OpenAI desarrolló y lanzó ChatGPT en 2022."},
       ],
       13:[
-        {q:"¿Qué científico británico es considerado el padre de la computación moderna por descifrar el código Enigma?", options:["Alan Turing","Tim Berners-Lee","John von Neumann","Claude Shannon"], correct:0},
+        {q:"¿Qué científico británico es considerado el padre de la computación moderna por descifrar el código Enigma?", options:["Alan Turing","Tim Berners-Lee","John von Neumann","Claude Shannon"], correct:0, explanation:"Alan Turing ayudó a descifrar el código Enigma nazi durante la Segunda Guerra Mundial."},
       ],
       14:[
-        {q:"¿Qué protocolo de internet es la base para transferir páginas web?", options:["FTP","HTTP","SMTP","SSH"], correct:1},
+        {q:"¿Qué protocolo de internet es la base para transferir páginas web?", options:["FTP","HTTP","SMTP","SSH"], correct:1, explanation:"HTTP es el protocolo usado para transferir páginas web."},
       ],
       15:[
-        {q:"¿Quién es considerado el creador del lenguaje de programación Python?", options:["Guido van Rossum","Dennis Ritchie","James Gosling","Bjarne Stroustrup"], correct:0},
+        {q:"¿Quién es considerado el creador del lenguaje de programación Python?", options:["Guido van Rossum","Dennis Ritchie","James Gosling","Bjarne Stroustrup"], correct:0, explanation:"Guido van Rossum creó Python a fines de los años 80."},
       ],
     },
     gastronomia: {
       1:[
-        {q:"¿De qué país es originaria la pizza margarita?", options:["España","Italia","Francia","Grecia"], correct:1},
+        {q:"¿De qué país es originaria la pizza margarita?", options:["España","Italia","Francia","Grecia"], correct:1, explanation:"La pizza margarita nació en Nápoles, Italia, en el siglo XIX."},
       ],
       2:[
-        {q:"¿Qué fruta se usa para hacer el guacamole?", options:["Mango","Aguacate","Papaya","Piña"], correct:1},
+        {q:"¿Qué fruta se usa para hacer el guacamole?", options:["Mango","Aguacate","Papaya","Piña"], correct:1, explanation:"El guacamole se prepara principalmente con aguacate (palta) machacado."},
       ],
       3:[
-        {q:"¿Qué bebida se obtiene de moler granos tostados?", options:["Té","Café","Chocolate","Mate"], correct:1},
+        {q:"¿Qué bebida se obtiene de moler granos tostados?", options:["Té","Café","Chocolate","Mate"], correct:1, explanation:"El café se obtiene de moler y preparar granos de café tostados."},
       ],
       4:[
-        {q:"¿Qué país es famoso por el sushi?", options:["China","Corea","Japón","Tailandia"], correct:2},
+        {q:"¿Qué país es famoso por el sushi?", options:["China","Corea","Japón","Tailandia"], correct:2, explanation:"El sushi es un plato tradicional japonés."},
       ],
       5:[
-        {q:"¿Qué ingrediente principal lleva el ceviche peruano?", options:["Carne roja","Pescado o marisco crudo marinado","Pollo","Cerdo"], correct:1},
+        {q:"¿Qué ingrediente principal lleva el ceviche peruano?", options:["Carne roja","Pescado o marisco crudo marinado","Pollo","Cerdo"], correct:1, explanation:"El ceviche se prepara con pescado o marisco crudo marinado en cítricos."},
       ],
       6:[
-        {q:"¿Qué tipo de pasta italiana tiene forma de tubos cortos?", options:["Spaghetti","Penne","Linguine","Fettuccine"], correct:1},
+        {q:"¿Qué tipo de pasta italiana tiene forma de tubos cortos?", options:["Spaghetti","Penne","Linguine","Fettuccine"], correct:1, explanation:"El penne son tubos cortos de pasta, cortados en diagonal."},
       ],
       7:[
-        {q:"¿Qué país es el mayor productor mundial de vino?", options:["Francia","Italia","España","Estados Unidos"], correct:1},
+        {q:"¿Qué país es el mayor productor mundial de vino?", options:["Francia","Italia","España","Estados Unidos"], correct:1, explanation:"Italia es tradicionalmente el mayor productor mundial de vino."},
       ],
       8:[
-        {q:"¿Qué plato mexicano es maíz relleno envuelto en hoja y cocido al vapor?", options:["Taco","Tamal","Quesadilla","Enchilada"], correct:1},
+        {q:"¿Qué plato mexicano es maíz relleno envuelto en hoja y cocido al vapor?", options:["Taco","Tamal","Quesadilla","Enchilada"], correct:1, explanation:"El tamal se envuelve en hoja de maíz o plátano y se cocina al vapor."},
       ],
       9:[
-        {q:"¿Qué especia, de las más caras del mundo, se obtiene del estigma de una flor?", options:["Canela","Azafrán","Pimienta","Cúrcuma"], correct:1},
+        {q:"¿Qué especia, de las más caras del mundo, se obtiene del estigma de una flor?", options:["Canela","Azafrán","Pimienta","Cúrcuma"], correct:1, explanation:"El azafrán se extrae de los estigmas de la flor de Crocus sativus."},
       ],
       10:[
-        {q:"¿Qué técnica culinaria francesa consiste en cocinar lentamente en su propia grasa?", options:["Confitado","Flambeado","Gratinado","Salteado"], correct:0},
+        {q:"¿Qué técnica culinaria francesa consiste en cocinar lentamente en su propia grasa?", options:["Confitado","Flambeado","Gratinado","Salteado"], correct:0, explanation:"El confitado cocina lentamente un alimento sumergido en su propia grasa."},
       ],
       11:[
-        {q:"¿Qué queso italiano se usa tradicionalmente para la pizza napolitana?", options:["Parmesano","Mozzarella","Gorgonzola","Provolone"], correct:1},
+        {q:"¿Qué queso italiano se usa tradicionalmente para la pizza napolitana?", options:["Parmesano","Mozzarella","Gorgonzola","Provolone"], correct:1, explanation:"La mozzarella es el queso clásico de la pizza napolitana."},
       ],
       12:[
-        {q:"¿Qué país es reconocido por inventar la técnica de fermentación del kimchi?", options:["Japón","China","Corea","Vietnam"], correct:2},
+        {q:"¿Qué país es reconocido por inventar la técnica de fermentación del kimchi?", options:["Japón","China","Corea","Vietnam"], correct:2, explanation:"El kimchi es un plato fermentado tradicional de Corea."},
       ],
       13:[
-        {q:"¿Qué chef español es conocido por la 'cocina molecular' en El Bulli?", options:["José Andrés","Ferran Adrià","Joan Roca","Martín Berasategui"], correct:1},
+        {q:"¿Qué chef español es conocido por la 'cocina molecular' en El Bulli?", options:["José Andrés","Ferran Adrià","Joan Roca","Martín Berasategui"], correct:1, explanation:"Ferran Adrià revolucionó la gastronomía con la cocina molecular en El Bulli."},
       ],
       14:[
-        {q:"¿Qué región francesa da nombre al método tradicional de elaboración del champagne?", options:["Borgoña","Provenza","Champagne","Normandía"], correct:2},
+        {q:"¿Qué región francesa da nombre al método tradicional de elaboración del champagne?", options:["Borgoña","Provenza","Champagne","Normandía"], correct:2, explanation:"El champagne solo puede llamarse así si proviene de la región francesa de Champagne."},
       ],
       15:[
-        {q:"¿Qué proceso transforma el mosto de uva en vino?", options:["Destilación","Fermentación alcohólica","Pasteurización","Maceración"], correct:1},
+        {q:"¿Qué proceso transforma el mosto de uva en vino?", options:["Destilación","Fermentación alcohólica","Pasteurización","Maceración"], correct:1, explanation:"La fermentación alcohólica convierte los azúcares del mosto en alcohol."},
       ],
     },
     actualidad: {
       1:[
-        {q:"¿En qué continente está la sede de la ONU (Nueva York)?", options:["Europa","América","Asia","África"], correct:1},
+        {q:"¿En qué continente está la sede de la ONU (Nueva York)?", options:["Europa","América","Asia","África"], correct:1, explanation:"La sede principal de la ONU está en Nueva York, en el continente americano."},
       ],
       2:[
-        {q:"¿Qué organización internacional reúne a la mayoría de los países para tratar temas de paz y seguridad?", options:["OTAN","ONU","OMC","UE"], correct:1},
+        {q:"¿Qué organización internacional reúne a la mayoría de los países para tratar temas de paz y seguridad?", options:["OTAN","ONU","OMC","UE"], correct:1, explanation:"La ONU fue fundada en 1945 para promover la paz y la cooperación internacional."},
       ],
       3:[
-        {q:"¿Cuántos continentes se reconocen habitualmente en el mundo?", options:["5","6","7","8"], correct:2},
+        {q:"¿Cuántos continentes se reconocen habitualmente en el mundo?", options:["5","6","7","8"], correct:2, explanation:"La mayoría de los sistemas educativos reconocen 7 continentes."},
       ],
       4:[
-        {q:"¿Qué bloque de países europeos comparte una moneda llamada euro?", options:["Reino Unido","La zona euro de la Unión Europea","Rusia","Turquía"], correct:1},
+        {q:"¿Qué bloque de países europeos comparte una moneda llamada euro?", options:["Reino Unido","La zona euro de la Unión Europea","Rusia","Turquía"], correct:1, explanation:"Los países de la zona euro, dentro de la Unión Europea, comparten esta moneda."},
       ],
       5:[
-        {q:"¿Qué evento deportivo mundial se celebra cada 4 años y reúne a casi todos los países?", options:["Juegos Olímpicos","Copa América","Super Bowl","Champions League"], correct:0},
+        {q:"¿Qué evento deportivo mundial se celebra cada 4 años y reúne a casi todos los países?", options:["Juegos Olímpicos","Copa América","Super Bowl","Champions League"], correct:0, explanation:"Los Juegos Olímpicos reúnen a casi todos los países del mundo cada 4 años."},
       ],
       6:[
-        {q:"¿Qué organismo internacional se encarga de la salud pública global?", options:["UNESCO","OMS","UNICEF","FAO"], correct:1},
+        {q:"¿Qué organismo internacional se encarga de la salud pública global?", options:["UNESCO","OMS","UNICEF","FAO"], correct:1, explanation:"La Organización Mundial de la Salud (OMS) coordina la salud pública a nivel mundial."},
       ],
       7:[
-        {q:"¿Qué acuerdo internacional de 2015 busca limitar el calentamiento global?", options:["Protocolo de Kioto","Acuerdo de París","Convenio de Basilea","Protocolo de Montreal"], correct:1},
+        {q:"¿Qué acuerdo internacional de 2015 busca limitar el calentamiento global?", options:["Protocolo de Kioto","Acuerdo de París","Convenio de Basilea","Protocolo de Montreal"], correct:1, explanation:"El Acuerdo de París busca limitar el aumento de la temperatura global."},
       ],
       8:[
-        {q:"¿Qué bloque sudamericano integran Argentina, Brasil, Paraguay y Uruguay como miembros plenos?", options:["Mercosur","Alianza del Pacífico","CAN","Unasur"], correct:0},
+        {q:"¿Qué bloque sudamericano integran Argentina, Brasil, Paraguay y Uruguay como miembros plenos?", options:["Mercosur","Alianza del Pacífico","CAN","Unasur"], correct:0, explanation:"El Mercosur es un bloque de integración económica sudamericano."},
       ],
       9:[
-        {q:"¿Qué red social de video corto, de origen chino, ha generado debates sobre regulación en varios países?", options:["Instagram","TikTok","Snapchat","YouTube"], correct:1},
+        {q:"¿Qué red social de video corto, de origen chino, ha generado debates sobre regulación en varios países?", options:["Instagram","TikTok","Snapchat","YouTube"], correct:1, explanation:"TikTok, de la empresa china ByteDance, ha sido objeto de debates sobre privacidad y regulación."},
       ],
       10:[
-        {q:"¿Qué crisis sanitaria mundial, declarada pandemia en 2020, cambió hábitos de trabajo y viaje?", options:["Ébola","COVID-19","Gripe Aviar","Zika"], correct:1},
+        {q:"¿Qué crisis sanitaria mundial, declarada pandemia en 2020, cambió hábitos de trabajo y viaje?", options:["Ébola","COVID-19","Gripe Aviar","Zika"], correct:1, explanation:"La pandemia de COVID-19 transformó globalmente el trabajo, los viajes y la vida cotidiana."},
       ],
       11:[
-        {q:"¿Qué tipo de vehículo ha crecido rápido en ventas globales como alternativa a los motores de combustión?", options:["Vehículos eléctricos","Vehículos a vapor","Vehículos a carbón","Vehículos exclusivamente a gas comprimido"], correct:0},
+        {q:"¿Qué tipo de vehículo ha crecido rápido en ventas globales como alternativa a los motores de combustión?", options:["Vehículos eléctricos","Vehículos a vapor","Vehículos a carbón","Vehículos exclusivamente a gas comprimido"], correct:0, explanation:"Los vehículos eléctricos han crecido rápidamente como alternativa a los motores tradicionales."},
       ],
       12:[
-        {q:"¿Qué término describe a la IA capaz de generar texto, imágenes o código a partir de instrucciones?", options:["IA generativa","IA supervisada","Machine Learning clásico","Big Data"], correct:0},
+        {q:"¿Qué término describe a la IA capaz de generar texto, imágenes o código a partir de instrucciones?", options:["IA generativa","IA supervisada","Machine Learning clásico","Big Data"], correct:0, explanation:"La IA generativa crea contenido nuevo (texto, imágenes, código) a partir de instrucciones."},
       ],
       13:[
-        {q:"¿Qué país asiático superó a China como la nación más poblada del mundo según la ONU en 2023?", options:["Indonesia","India","Pakistán","Bangladés"], correct:1},
+        {q:"¿Qué país asiático superó a China como la nación más poblada del mundo según la ONU en 2023?", options:["Indonesia","India","Pakistán","Bangladés"], correct:1, explanation:"Según la ONU, India superó a China en población en 2023."},
       ],
       14:[
-        {q:"¿Qué término se usa para el objetivo de reducir a cero las emisiones netas de carbono para cierta fecha?", options:["Neutralidad de carbono","Huella hídrica","Economía circular","Biodiversidad"], correct:0},
+        {q:"¿Qué término se usa para el objetivo de reducir a cero las emisiones netas de carbono para cierta fecha?", options:["Neutralidad de carbono","Huella hídrica","Economía circular","Biodiversidad"], correct:0, explanation:"La neutralidad de carbono busca equilibrar las emisiones con su absorción o eliminación."},
       ],
       15:[
-        {q:"¿Qué acuerdo comercial reemplazó al TLCAN entre México, Estados Unidos y Canadá en 2020?", options:["CPTPP","T-MEC / USMCA","Mercosur","RCEP"], correct:1},
+        {q:"¿Qué acuerdo comercial reemplazó al TLCAN entre México, Estados Unidos y Canadá en 2020?", options:["CPTPP","T-MEC / USMCA","Mercosur","RCEP"], correct:1, explanation:"El T-MEC (USMCA) reemplazó al TLCAN en 2020."},
       ],
     },
   };
@@ -1758,6 +1766,8 @@
 
     const feedbackP = document.createElement('div');
     feedbackP.style.cssText = 'margin-top:10px; min-height:20px; font-size:13px; font-weight:700; text-align:center;';
+    const explanationP = document.createElement('div');
+    explanationP.style.cssText = 'margin-top:8px; font-size:12px; color:var(--text-dim); line-height:1.5; text-align:left; background:#1a1428; border:1px solid var(--panel-line); border-left:3px solid var(--accent); border-radius:8px; padding:9px 11px; display:none;';
 
     order.forEach(({opt, idx})=>{
       const btn = document.createElement('button');
@@ -1794,6 +1804,11 @@
           feedbackP.style.color = 'var(--bad)';
         }
 
+        if(daily.q.explanation){
+          explanationP.innerHTML = '<b style="color:var(--accent);">💡 Por qué:</b> ' + daily.q.explanation;
+          explanationP.style.display = 'block';
+        }
+
         saveSoloStats();
         checkAchievements();
         renderScore();
@@ -1801,12 +1816,13 @@
         renderLegend();
         renderWheel();
 
-        setTimeout(()=>{ renderDaily(); }, 1600);
+        setTimeout(()=>{ renderDaily(); }, daily.q.explanation ? 4200 : 1600);
       });
       dailyBody.appendChild(btn);
     });
 
     dailyBody.appendChild(feedbackP);
+    dailyBody.appendChild(explanationP);
   }
 
   if(dailyBtn){
@@ -2503,10 +2519,10 @@
   // -------- Generación de preguntas nuevas: Claude (dentro de Claude.ai) o Gemini (PWA independiente) --------
   async function callClaudeForQuestions(topicName, level, count, existingTexts){
     const prompt = `Genera ${count} preguntas de trivia en español sobre el tema "${topicName}", de dificultad nivel ${level} de ${MAX_LEVEL} (1 = muy fácil, ${MAX_LEVEL} = muy difícil, tipo experto). La dificultad debe subir de forma gradual y perceptible a medida que el nivel es más alto.
-Cada pregunta debe tener 4 opciones de respuesta, solo una correcta.
+Cada pregunta debe tener 4 opciones de respuesta, solo una correcta, y una explicación breve (máximo 20 palabras) de por qué esa opción es la correcta.
 No repitas ni te parezcas demasiado a estas preguntas ya existentes: ${existingTexts.slice(0,25).join(' | ') || '(ninguna todavía)'}.
 Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backticks ni markdown, con este formato exacto:
-[{"q":"texto de la pregunta","options":["op1","op2","op3","op4"],"correct":0}]`;
+[{"q":"texto de la pregunta","options":["op1","op2","op3","op4"],"correct":0,"explanation":"por qué es correcta, breve"}]`;
 
     let rawText;
 
@@ -3040,6 +3056,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   const qText = document.getElementById('qText');
   const optionsDiv = document.getElementById('options');
   const feedback = document.getElementById('feedback');
+  const explanationBox = document.getElementById('explanationBox');
   const continueBtn = document.getElementById('continueBtn');
 
   // ---------------- Modo contrarreloj ----------------
@@ -3203,6 +3220,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     optionsDiv.innerHTML = '';
     feedback.textContent = '';
     feedback.className = '';
+    explanationBox.style.display = 'none';
     continueBtn.style.display = 'none';
 
     // reset de comodines para esta pregunta
@@ -3294,6 +3312,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
     saveSoloStats();
     checkAchievements();
+
+    if(currentQuestionData.explanation){
+      explanationBox.innerHTML = '<b>💡 Por qué:</b> ' + currentQuestionData.explanation;
+      explanationBox.style.display = 'block';
+    } else {
+      explanationBox.style.display = 'none';
+    }
 
     renderScore();
     renderStreak();
