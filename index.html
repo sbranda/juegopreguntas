@@ -207,13 +207,15 @@
 
   #wheelResultLabel{
     font-family: var(--font-display);
-    font-size:17px; font-weight:700;
-    padding:8px 22px; border-radius:22px;
+    font-size:15px; font-weight:700;
+    padding:8px 20px; border-radius:22px;
     margin-bottom:14px;
     border:2px solid var(--accent);
     background:rgba(255,209,102,0.12);
     color:var(--text);
-    display:flex; align-items:center; gap:8px;
+    display:flex; align-items:center; gap:6px;
+    flex-wrap:wrap; justify-content:center; text-align:center;
+    max-width:92vw;
     animation: resultPop 0.4s cubic-bezier(.2,.9,.3,1.4);
   }
   @keyframes resultPop{
@@ -1755,6 +1757,7 @@
         renderScore();
         renderStreak();
         renderLegend();
+        renderWheel();
 
         setTimeout(()=>{ renderDaily(); }, 1600);
       });
@@ -2158,6 +2161,7 @@
     renderScore();
     renderStreak();
     renderLegend();
+    renderWheel();
     renderTurnUI();
   }
 
@@ -2224,6 +2228,7 @@
       renderScore();
       renderStreak();
       renderLegend();
+      renderWheel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
@@ -2243,6 +2248,7 @@
       renderScore();
       renderStreak();
       renderLegend();
+      renderWheel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 Multijugador';
       multiplayerOverlay.style.display = 'none';
@@ -2376,6 +2382,7 @@
       renderScore();
       renderStreak();
       renderLegend();
+      renderWheel();
       renderTurnUI();
       renderWildcardButtons();
       updateBankUI();
@@ -2659,6 +2666,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       tspanName.textContent = WHEEL_LABEL[t.key] || t.name;
       text.appendChild(tspanName);
 
+      // Nivel actual del jugador en ese tema, directo sobre la porción
+      const tspanLevel = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      tspanLevel.setAttribute('x', labelPos.x);
+      tspanLevel.setAttribute('y', labelPos.y);
+      tspanLevel.setAttribute('dy', '10');
+      tspanLevel.setAttribute('font-size', n <= 6 ? '8.5' : '7.3');
+      tspanLevel.setAttribute('fill', '#fff8dd');
+      tspanLevel.setAttribute('opacity', '0.95');
+      tspanLevel.textContent = 'Nv ' + (state[t.key] || 1) + '/' + MAX_LEVEL;
+      text.appendChild(tspanLevel);
+
       svg.appendChild(text);
     });
   }
@@ -2929,7 +2947,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       spinning = false;
       const chosenTopic = active[chosenIndex];
 
-      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span>';
+      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL;
       wheelResultLabel.style.borderColor = chosenTopic.color;
       wheelResultLabel.style.display = 'flex';
       // reinicia la animación de aparición
@@ -3210,6 +3228,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     renderScore();
     renderStreak();
     renderLegend();
+    renderWheel();
     continueBtn.style.display = 'block';
   }
 
