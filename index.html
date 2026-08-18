@@ -644,6 +644,48 @@
     color:var(--accent);
   }
   .a11yOption .check{ font-size:16px; visibility:hidden; }
+
+  .mqTabBtn{
+    flex:1; padding:9px; border-radius:9px;
+    background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim);
+    font-weight:700; font-size:12px; cursor:pointer;
+  }
+  .mqTabBtn.active{ background:rgba(255,209,102,0.12); border-color:var(--accent); color:var(--accent); }
+  .mqLabel{
+    display:block; font-size:11px; font-weight:700; color:var(--text-dim);
+    margin:12px 0 5px; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .mqInput{
+    width:100%; box-sizing:border-box; padding:10px 12px;
+    border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a;
+    color:var(--text); font-size:13px; font-family:inherit; resize:vertical;
+  }
+  select.mqInput{ appearance:auto; }
+  .mqOptionRow{
+    display:flex; align-items:center; gap:8px; margin-bottom:7px;
+  }
+  .mqOptionRow input[type="radio"]{ width:18px; height:18px; accent-color:var(--good); flex:none; }
+  .mqOptionRow input[type="text"]{
+    flex:1; padding:9px 11px; border-radius:8px; border:1.5px solid var(--panel-line);
+    background:#12121a; color:var(--text); font-size:13px;
+  }
+  .mqCard{
+    background:#1a1428; border:1px solid var(--panel-line); border-radius:10px;
+    padding:11px 13px; margin-bottom:9px;
+  }
+  .mqCard .mqCardTop{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px;
+  }
+  .mqCard .mqTag{
+    font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;
+    text-transform:uppercase;
+  }
+  .mqCard .mqQ{ font-size:13px; font-weight:700; margin:4px 0; }
+  .mqCard .mqAns{ font-size:11.5px; color:var(--good); }
+  .mqDeleteBtn{
+    flex:none; background:transparent; border:1.5px solid var(--bad); color:var(--bad);
+    border-radius:7px; width:28px; height:28px; cursor:pointer; font-size:13px;
+  }
   .a11yOption.active .check{ visibility:visible; }
 </style>
 </head>
@@ -689,6 +731,7 @@
     <button id="leaderboardBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏆 Posiciones</button>
     <button id="a11yBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🔤 Tamaño de texto</button>
     <button id="reviewModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📖 Modo repaso</button>
+    <button id="myQuestionsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">✏️ Mis preguntas</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -858,6 +901,45 @@
     </p>
     <div id="a11yOptions" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
     <button id="closeA11yBtn" style="width:100%; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="myQuestionsOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:420px; width:100%; max-height:88vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 4px; font-size:15px;">✏️ Mis preguntas</h3>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:0 0 12px;">Ideales para trivia familiar o entre amigos — se mezclan con las demás preguntas de cada tema.</p>
+
+    <div style="display:flex; gap:6px; margin-bottom:12px;">
+      <button id="mqTabAdd" class="mqTabBtn active">+ Agregar</button>
+      <button id="mqTabList" class="mqTabBtn">Ver las mías (<span id="mqCount">0</span>)</button>
+    </div>
+
+    <div id="mqAddView" style="overflow-y:auto; flex:1;">
+      <label class="mqLabel">Tema</label>
+      <select id="mqTopic" class="mqInput"></select>
+
+      <label class="mqLabel">Nivel de dificultad (1 muy fácil — 15 muy difícil)</label>
+      <select id="mqLevel" class="mqInput"></select>
+
+      <label class="mqLabel">Pregunta</label>
+      <textarea id="mqText" class="mqInput" rows="2" placeholder="¿Cómo se llama el perro de la abuela?"></textarea>
+
+      <label class="mqLabel">Emoji para ilustrarla (opcional)</label>
+      <input id="mqImage" class="mqInput" type="text" maxlength="4" placeholder="🐶">
+
+      <label class="mqLabel">Las 4 opciones (marcá cuál es la correcta)</label>
+      <div id="mqOptionsWrap"></div>
+
+      <label class="mqLabel">Explicación breve (opcional)</label>
+      <textarea id="mqExplanation" class="mqInput" rows="2" placeholder="Por qué es la respuesta correcta..."></textarea>
+
+      <p id="mqWarning" style="font-size:11.5px; color:var(--bad); margin:8px 0 0; display:none;"></p>
+      <button id="mqSaveBtn" style="width:100%; margin-top:12px; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Guardar pregunta</button>
+    </div>
+
+    <div id="mqListView" style="display:none; overflow-y:auto; flex:1;"></div>
+
+    <button id="closeMyQuestionsBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -1470,6 +1552,7 @@
   // total de preguntas disponibles (para mostrarlo en pantalla)
   let TOTAL_QUESTIONS = 0;
   const MAX_LEVEL = 15;
+  let customQuestions = {}; // se declara temprano porque recomputeTotal() ya lo usa
   const TARGET_TOTAL = 1000;
   const TARGET_PER_BUCKET = Math.ceil(TARGET_TOTAL / (TOPICS.length*MAX_LEVEL)); // se ajusta solo según temas × 15 niveles
 
@@ -1477,6 +1560,9 @@
     TOTAL_QUESTIONS = 0;
     Object.values(QUESTIONS).forEach(levels=>{
       Object.values(levels).forEach(arr=> TOTAL_QUESTIONS += arr.length);
+    });
+    Object.values(customQuestions).forEach(byLevel=>{
+      Object.values(byLevel).forEach(arr=> TOTAL_QUESTIONS += arr.length);
     });
     return TOTAL_QUESTIONS;
   }
@@ -1655,6 +1741,45 @@
     return n;
   }
 
+  // -------- Preguntas personalizadas (mías, agregadas a mano) --------
+  // customQuestions[topicKey][level] = array de {q, options, correct, image, explanation, id, custom:true}
+  async function loadCustomQuestions(){
+    const raw = await storageGet('custom_questions');
+    if(!raw) return;
+    try{
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object') Object.assign(customQuestions, parsed);
+    }catch(e){ /* dato corrupto, se ignora */ }
+  }
+  loadCustomQuestions();
+
+  async function saveCustomQuestions(){
+    await storageSet('custom_questions', JSON.stringify(customQuestions));
+  }
+
+  function customCount(){
+    let n = 0;
+    Object.values(customQuestions).forEach(byLevel => {
+      Object.values(byLevel).forEach(arr => { n += arr.length; });
+    });
+    return n;
+  }
+
+  function addCustomQuestion(topicKey, level, q){
+    if(!customQuestions[topicKey]) customQuestions[topicKey] = {};
+    if(!customQuestions[topicKey][level]) customQuestions[topicKey][level] = [];
+    q.id = Date.now() + '-' + Math.floor(Math.random()*10000);
+    q.custom = true;
+    customQuestions[topicKey][level].push(q);
+    saveCustomQuestions();
+  }
+
+  function removeCustomQuestion(topicKey, level, id){
+    if(!customQuestions[topicKey] || !customQuestions[topicKey][level]) return;
+    customQuestions[topicKey][level] = customQuestions[topicKey][level].filter(q => q.id !== id);
+    saveCustomQuestions();
+  }
+
   const achievementToast = document.getElementById('achievementToast');
   const toastIcon = document.getElementById('toastIcon');
   const toastText = document.getElementById('toastText');
@@ -1712,6 +1837,7 @@
     TOPICS.forEach(t=>{
       for(let l=1; l<=MAX_LEVEL; l++){
         (QUESTIONS[t.key][l] || []).forEach(q => pool.push({ topic: t, level: l, q }));
+        (customQuestions[t.key] && customQuestions[t.key][l] || []).forEach(q => pool.push({ topic: t, level: l, q }));
       }
     });
     return pool;
@@ -2423,7 +2549,10 @@
   function pickQuestion(topicKey, level){
     const levels = tierGroupLevels(level);
     const pool = [];
-    levels.forEach(l => { (QUESTIONS[topicKey][l] || []).forEach(q => pool.push(q)); });
+    levels.forEach(l => {
+      (QUESTIONS[topicKey][l] || []).forEach(q => pool.push(q));
+      (customQuestions[topicKey] && customQuestions[topicKey][l] || []).forEach(q => pool.push(q));
+    });
     if(!pool.length) return null;
 
     const key = topicKey + '-grupo-' + levels[0];
@@ -3179,6 +3308,140 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     });
   }
   updateReviewBtnLabel();
+
+  // ---------------- Mis preguntas (personalizadas) ----------------
+  const myQuestionsBtn = document.getElementById('myQuestionsBtn');
+  const myQuestionsOverlay = document.getElementById('myQuestionsOverlay');
+  const closeMyQuestionsBtn = document.getElementById('closeMyQuestionsBtn');
+  const mqTabAdd = document.getElementById('mqTabAdd');
+  const mqTabList = document.getElementById('mqTabList');
+  const mqAddView = document.getElementById('mqAddView');
+  const mqListView = document.getElementById('mqListView');
+  const mqTopic = document.getElementById('mqTopic');
+  const mqLevel = document.getElementById('mqLevel');
+  const mqText = document.getElementById('mqText');
+  const mqImage = document.getElementById('mqImage');
+  const mqOptionsWrap = document.getElementById('mqOptionsWrap');
+  const mqExplanation = document.getElementById('mqExplanation');
+  const mqWarning = document.getElementById('mqWarning');
+  const mqSaveBtn = document.getElementById('mqSaveBtn');
+  const mqCountSpan = document.getElementById('mqCount');
+
+  function populateMqSelects(){
+    mqTopic.innerHTML = TOPICS.map(t => `<option value="${t.key}">${t.icon} ${t.name}</option>`).join('');
+    let opts = '';
+    for(let l=1; l<=MAX_LEVEL; l++) opts += `<option value="${l}">${l}</option>`;
+    mqLevel.innerHTML = opts;
+  }
+
+  function buildMqOptionRows(){
+    mqOptionsWrap.innerHTML = '';
+    for(let i=0;i<4;i++){
+      const row = document.createElement('div');
+      row.className = 'mqOptionRow';
+      row.innerHTML = `
+        <input type="radio" name="mqCorrect" value="${i}" ${i===0?'checked':''}>
+        <input type="text" placeholder="Opción ${i+1}" maxlength="80">`;
+      mqOptionsWrap.appendChild(row);
+    }
+  }
+
+  function clearMqForm(){
+    mqText.value = '';
+    mqImage.value = '';
+    mqExplanation.value = '';
+    mqWarning.style.display = 'none';
+    buildMqOptionRows();
+    mqTopic.selectedIndex = 0;
+    mqLevel.selectedIndex = 0;
+  }
+
+  function renderMyQuestionsList(){
+    mqListView.innerHTML = '';
+    let total = 0;
+    TOPICS.forEach(t=>{
+      const byLevel = customQuestions[t.key];
+      if(!byLevel) return;
+      for(let l=1; l<=MAX_LEVEL; l++){
+        (byLevel[l] || []).forEach(q=>{
+          total++;
+          const card = document.createElement('div');
+          card.className = 'mqCard';
+          card.innerHTML = `
+            <div class="mqCardTop">
+              <span class="mqTag" style="background:${t.color}; color:rgba(0,0,0,0.75);">${t.icon} ${t.name} · Nv ${l}</span>
+              <button class="mqDeleteBtn" type="button">🗑️</button>
+            </div>
+            <div class="mqQ">${q.image ? q.image + ' ' : ''}${q.q}</div>
+            <div class="mqAns">✓ ${q.options[q.correct]}</div>`;
+          card.querySelector('.mqDeleteBtn').addEventListener('click', ()=>{
+            removeCustomQuestion(t.key, l, q.id);
+            renderMyQuestionsList();
+            updateBankUI();
+          });
+          mqListView.appendChild(card);
+        });
+      }
+    });
+    mqCountSpan.textContent = total;
+    if(total === 0){
+      mqListView.innerHTML = '<p style="font-size:12.5px; color:var(--text-dim); text-align:center; padding:20px 0;">Todavía no agregaste ninguna pregunta propia.</p>';
+    }
+  }
+
+  function switchMqTab(tab){
+    const isAdd = tab === 'add';
+    mqTabAdd.classList.toggle('active', isAdd);
+    mqTabList.classList.toggle('active', !isAdd);
+    mqAddView.style.display = isAdd ? 'block' : 'none';
+    mqListView.style.display = isAdd ? 'none' : 'block';
+    if(!isAdd) renderMyQuestionsList();
+  }
+
+  if(myQuestionsBtn){
+    populateMqSelects();
+    buildMqOptionRows();
+
+    myQuestionsBtn.addEventListener('click', ()=>{
+      switchMqTab('add');
+      myQuestionsOverlay.style.display = 'flex';
+    });
+    closeMyQuestionsBtn.addEventListener('click', ()=>{
+      myQuestionsOverlay.style.display = 'none';
+    });
+    mqTabAdd.addEventListener('click', ()=> switchMqTab('add'));
+    mqTabList.addEventListener('click', ()=> switchMqTab('list'));
+
+    mqSaveBtn.addEventListener('click', ()=>{
+      const topicKey = mqTopic.value;
+      const level = parseInt(mqLevel.value, 10);
+      const qText_ = mqText.value.trim();
+      const image = mqImage.value.trim();
+      const explanation = mqExplanation.value.trim();
+      const optionInputs = Array.from(mqOptionsWrap.querySelectorAll('input[type="text"]'));
+      const options = optionInputs.map(inp => inp.value.trim());
+      const correctRadio = mqOptionsWrap.querySelector('input[name="mqCorrect"]:checked');
+      const correct = correctRadio ? parseInt(correctRadio.value, 10) : 0;
+
+      if(!qText_ || options.some(o => !o)){
+        mqWarning.textContent = 'Completá la pregunta y las 4 opciones.';
+        mqWarning.style.display = 'block';
+        return;
+      }
+
+      const q = { q: qText_, options, correct };
+      if(image) q.image = image;
+      if(explanation) q.explanation = explanation;
+
+      addCustomQuestion(topicKey, level, q);
+      updateBankUI();
+      clearMqForm();
+      mqWarning.style.color = 'var(--good)';
+      mqWarning.textContent = '¡Guardada! Ya se mezcla con las preguntas de ese tema y nivel.';
+      mqWarning.style.display = 'block';
+      setTimeout(()=>{ mqWarning.style.display = 'none'; mqWarning.style.color = 'var(--bad)'; }, 2600);
+    });
+  }
 
 
   function stopTimer(){
