@@ -905,7 +905,7 @@
   <div id="bankPanel">
     <h3>Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
     <div id="bankBarTrack"><div id="bankBarFill"></div></div>
-    <div id="genStatus">Toca el botón para generar más preguntas con IA hasta llegar a 500.</div>
+    <div id="genStatus"></div>
     <div style="display:flex; gap:8px;">
       <button id="genBtn" style="flex:1;">Generar más preguntas (IA)</button>
       <button id="settingsBtn" title="Configurar clave de API" style="width:44px; flex:none; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:16px;">⚙️</button>
@@ -1823,6 +1823,7 @@
   let TOTAL_QUESTIONS = 0;
   const MAX_LEVEL = 15;
   let customQuestions = {}; // se declara temprano porque recomputeTotal() ya lo usa
+  let generating = false; // se declara temprano porque updateBankUI() ya lo usa
   const TARGET_TOTAL = 1000;
   const TARGET_PER_BUCKET = Math.ceil(TARGET_TOTAL / (TOPICS.length*MAX_LEVEL)); // se ajusta solo según temas × 15 niveles
 
@@ -1845,6 +1846,13 @@
     document.getElementById('bankBarFill').style.width = Math.min(100, (shown/TARGET_TOTAL)*100) + '%';
     const tq = document.getElementById('totalQCount');
     if(tq) tq.textContent = TOTAL_QUESTIONS + ' preguntas en el banco, repartidas en ' + TOPICS.length + ' temas × ' + MAX_LEVEL + ' niveles';
+
+    const gs = document.getElementById('genStatus');
+    if(gs && !generating){
+      gs.textContent = TOTAL_QUESTIONS >= TARGET_TOTAL
+        ? `Ya llegaste a la meta de ${TARGET_TOTAL} preguntas. 🎉`
+        : `Toca el botón para generar más preguntas con IA hasta llegar a ${TARGET_TOTAL}.`;
+    }
   }
 
   // -------- Almacenamiento: funciona dentro de Claude.ai (window.storage) o como PWA independiente (localStorage) --------
@@ -3690,7 +3698,6 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   const genBtn = document.getElementById('genBtn');
   const genStatus = document.getElementById('genStatus');
-  let generating = false;
   let stopRequested = false;
 
   genBtn.addEventListener('click', ()=>{
