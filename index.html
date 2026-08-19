@@ -890,6 +890,19 @@
     </div>
 
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
+      <h3 style="margin:0 0 6px; font-size:14px;">💾 Exportar / importar banco</h3>
+      <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
+        Guardá tus preguntas generadas por IA y las que escribiste vos en un archivo, para no perderlas si cambiás de dispositivo o reinstalás la app.
+      </p>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button id="exportBankBtn" style="flex:1; background:transparent; border:1.5px solid var(--accent); color:var(--accent); padding:10px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">⬇️ Exportar</button>
+        <button id="importBankBtn" style="flex:1; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:10px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">⬆️ Importar</button>
+        <input id="importBankInput" type="file" accept="application/json,.json" style="display:none;">
+      </div>
+      <p id="bankIOStatus" style="font-size:11.5px; color:var(--good); margin:0; display:none;"></p>
+    </div>
+
+    <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
         Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso y récord de supervivencia</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
@@ -3080,6 +3093,137 @@
       if(val){
         await storageSet('gemini_api_key', val);
         keyStatus.textContent = 'Clave guardada. ✅';
+      }
+    });
+
+    // -------- Exportar / importar banco de preguntas --------
+    const exportBankBtn = document.getElementById('exportBankBtn');
+    const importBankBtn = document.getElementById('importBankBtn');
+    const importBankInput = document.getElementById('importBankInput');
+    const bankIOStatus = document.getElementById('bankIOStatus');
+
+    function showBankIOStatus(text, isError){
+      bankIOStatus.textContent = text;
+      bankIOStatus.style.color = isError ? 'var(--bad)' : 'var(--good)';
+      bankIOStatus.style.display = 'block';
+    }
+
+    function collectExtrasForExport(){
+      const extras = {};
+      TOPICS.forEach(t=>{
+        for(let l=1; l<=MAX_LEVEL; l++){
+          const seedLen = SEED_COUNTS[t.key+'-'+l] || 0;
+          const pool = QUESTIONS[t.key][l] || [];
+          const extra = pool.slice(seedLen);
+          if(extra.length){
+            if(!extras[t.key]) extras[t.key] = {};
+            extras[t.key][l] = extra;
+          }
+        }
+      });
+      return extras;
+    }
+
+    exportBankBtn.addEventListener('click', ()=>{
+      const payload = {
+        app: 'rueda-de-preguntas',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        extras: collectExtrasForExport(),   // preguntas generadas por IA
+        custom: customQuestions              // preguntas escritas a mano
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0,10);
+      a.href = url;
+      a.download = 'rueda-preguntas-banco-' + dateStr + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showBankIOStatus('Archivo descargado. ✅');
+    });
+
+    importBankBtn.addEventListener('click', ()=>{
+      bankIOStatus.style.display = 'none';
+      importBankInput.value = '';
+      importBankInput.click();
+    });
+
+    importBankInput.addEventListener('change', async ()=>{
+      const file = importBankInput.files && importBankInput.files[0];
+      if(!file) return;
+      try{
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if(!data || (typeof data.extras !== 'object' && typeof data.custom !== 'object')){
+          showBankIOStatus('Ese archivo no tiene el formato esperado.', true);
+          return;
+        }
+
+        let addedExtras = 0, addedCustom = 0, skipped = 0;
+
+        // mezclar preguntas generadas por IA (por tema/nivel, sin duplicar por texto)
+        if(data.extras){
+          for(const topicKey of Object.keys(data.extras)){
+            if(!QUESTIONS[topicKey]) continue; // tema desconocido, se ignora
+            for(const levelStr of Object.keys(data.extras[topicKey])){
+              const level = parseInt(levelStr, 10);
+              if(!(level >= 1 && level <= MAX_LEVEL)) continue;
+              const seedLen = SEED_COUNTS[topicKey+'-'+level] || 0;
+              const pool = QUESTIONS[topicKey][level] || [];
+              const seen = new Set(pool.map(q => q.q));
+              const incoming = data.extras[topicKey][level] || [];
+              const toAdd = incoming.filter(q => q && q.q && Array.isArray(q.options) && q.options.length === 4 && !seen.has(q.q));
+              toAdd.forEach(q => seen.add(q.q));
+              if(toAdd.length){
+                QUESTIONS[topicKey][level] = pool.concat(toAdd);
+                addedExtras += toAdd.length;
+                await saveExtras(topicKey, level, QUESTIONS[topicKey][level].slice(seedLen));
+              }
+              skipped += incoming.length - toAdd.length;
+            }
+          }
+        }
+
+        // mezclar preguntas personalizadas (por tema/nivel, sin duplicar por texto)
+        if(data.custom){
+          for(const topicKey of Object.keys(data.custom)){
+            if(!TOPICS.some(t=>t.key===topicKey)) continue;
+            for(const levelStr of Object.keys(data.custom[topicKey])){
+              const level = parseInt(levelStr, 10);
+              if(!(level >= 1 && level <= MAX_LEVEL)) continue;
+              if(!customQuestions[topicKey]) customQuestions[topicKey] = {};
+              if(!customQuestions[topicKey][level]) customQuestions[topicKey][level] = [];
+              const seen = new Set(customQuestions[topicKey][level].map(q => q.q));
+              const incoming = data.custom[topicKey][level] || [];
+              const toAdd = incoming.filter(q => q && q.q && Array.isArray(q.options) && q.options.length === 4 && !seen.has(q.q));
+              toAdd.forEach(q => {
+                seen.add(q.q);
+                if(!q.id) q.id = Date.now() + '-' + Math.floor(Math.random()*10000);
+                q.custom = true;
+              });
+              if(toAdd.length){
+                customQuestions[topicKey][level] = customQuestions[topicKey][level].concat(toAdd);
+                addedCustom += toAdd.length;
+              }
+              skipped += incoming.length - toAdd.length;
+            }
+          }
+          if(addedCustom) await saveCustomQuestions();
+        }
+
+        updateBankUI();
+        const parts = [];
+        if(addedExtras) parts.push(addedExtras + ' generadas por IA');
+        if(addedCustom) parts.push(addedCustom + ' propias');
+        if(parts.length){
+          showBankIOStatus('Se importaron ' + parts.join(' y ') + '.' + (skipped ? ' (' + skipped + ' ya las tenías, se omitieron)' : ''));
+        } else {
+          showBankIOStatus('No había preguntas nuevas para agregar' + (skipped ? ' (ya las tenías todas)' : '') + '.');
+        }
+      }catch(e){
+        console.error(e);
+        showBankIOStatus('No se pudo leer ese archivo. ¿Es un export válido de esta app?', true);
       }
     });
 
