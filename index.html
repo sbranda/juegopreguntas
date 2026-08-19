@@ -769,6 +769,31 @@
     border-radius:7px; width:28px; height:28px; cursor:pointer; font-size:13px;
   }
   .a11yOption.active .check{ visibility:visible; }
+
+  .bracketRound{ margin-bottom:14px; }
+  .bracketRound h4{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--text-dim); margin:0 0 8px;
+  }
+  .bracketMatch{
+    display:flex; flex-direction:column; gap:4px;
+    background:#1a1428; border:1px solid var(--panel-line); border-radius:9px;
+    padding:9px 12px; margin-bottom:7px; font-size:12.5px;
+  }
+  .bracketMatch.current{ border-color:var(--accent); background:rgba(255,209,102,0.08); }
+  .bracketPlayerRow{ display:flex; justify-content:space-between; align-items:center; }
+  .bracketPlayerRow.winner{ color:var(--good); font-weight:800; }
+  .bracketPlayerRow .bpScore{ font-weight:800; color:var(--text-dim); }
+  .bracketBye{ color:var(--text-dim); font-size:11px; font-style:italic; }
+
+  #tournamentBanner{
+    display:none;
+    align-items:center; justify-content:center; gap:8px;
+    font-family:var(--font-display); font-weight:700; font-size:13px;
+    background:rgba(255,93,108,0.12); border:1.5px solid var(--bad); color:var(--bad);
+    padding:7px 16px; border-radius:16px; margin:6px 0 0;
+    text-align:center; flex-wrap:wrap;
+  }
 </style>
 </head>
 <body>
@@ -789,6 +814,7 @@
   <div id="streakBadge" style="display:none;">🔥 Racha x<span id="streakVal">0</span></div>
   <div id="survivalBadge" style="display:none;">💀 Supervivencia: <span id="survivalVal">0</span> · Récord: <span id="survivalBestVal">0</span></div>
   <div id="playerChips" style="display:none;"></div>
+  <div id="tournamentBanner"></div>
   <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
   <div id="wheelWrap">
@@ -888,7 +914,17 @@
       <button id="startMultiplayerBtn" style="flex:1; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Empezar partida</button>
       <button id="closeMultiplayerBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
     </div>
+    <button id="startTournamentBtn" style="width:100%; margin-bottom:8px; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">🏆 Iniciar torneo (eliminación directa)</button>
+    <button id="viewBracketBtn" style="width:100%; display:none; margin-bottom:8px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">📋 Ver bracket</button>
     <button id="exitMultiplayerBtn" style="display:none; width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Salir del modo multijugador</button>
+  </div>
+</div>
+
+<div id="bracketOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:55; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 12px; font-size:15px;">🏆 Bracket del torneo</h3>
+    <div id="bracketList" style="overflow-y:auto; flex:1;"></div>
+    <button id="closeBracketBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -1072,6 +1108,16 @@
   <div style="display:flex; gap:8px;">
     <button id="survivalRetryBtn" style="background:var(--bad);color:#fff;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">🔄 Intentar de nuevo</button>
     <button id="survivalExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir</button>
+  </div>
+</div>
+
+<div id="championOverlay" class="fullOverlay">
+  <h2 style="color:var(--accent);">🏆 ¡Tenemos campeón!</h2>
+  <p style="font-size:20px; font-weight:800; color:var(--text); max-width:none;" id="championName">—</p>
+  <p style="font-size:13px;">Ganó el torneo de eliminación directa.</p>
+  <div style="display:flex; gap:8px;">
+    <button id="championNewTournamentBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 24px;border-radius:24px;font-weight:800;cursor:pointer;">🏆 Nuevo torneo</button>
+    <button id="championFreePlayBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Turnos libres</button>
   </div>
 </div>
 
@@ -1738,6 +1784,17 @@
   let multiplayerEnabled = false;
   let players = []; // [{ name, score, state: {topicKey: level} }]
   let currentPlayerIndex = 0;
+
+  // -------- Torneo (eliminación directa) --------
+  // Reutiliza "players" y el mecanismo de currentPlayerIndex/loadCurrentPlayer del
+  // multijugador normal; solo cambia CÓMO se decide de quién es el turno.
+  let tournamentActive = false;
+  let tournamentRounds = []; // [ [ {a, b, scoreA, scoreB, winner, bye, suddenDeathRounds}, ... ], ... ] — a/b son índices en "players"
+  let currentRoundIdx = 0;
+  let currentMatchIdx = 0;
+  let matchTurnPlayer = 'a'; // 'a' o 'b'
+  let matchQuestionsAsked = { a: 0, b: 0 };
+  const QUESTIONS_PER_MATCH_PLAYER = 3;
 
   // -------- Comodines --------
   let wildcards = { fifty: 3, skip: 3, double: 3 };
@@ -2545,6 +2602,16 @@
   function renderTurnUI(){
     const turnLabel = document.getElementById('turnLabel');
     const playerChips = document.getElementById('playerChips');
+    const tournamentBanner = document.getElementById('tournamentBanner');
+
+    if(tournamentActive){
+      turnLabel.style.display = 'none';
+      playerChips.style.display = 'none';
+      renderTournamentBanner();
+      return;
+    }
+    tournamentBanner.style.display = 'none';
+
     if(!multiplayerEnabled || players.length < 2){
       turnLabel.style.display = 'none';
       playerChips.style.display = 'none';
@@ -2563,6 +2630,7 @@
   }
 
   function nextTurn(){
+    if(tournamentActive) return; // en torneo el turno lo maneja tournamentNextStep()
     if(!multiplayerEnabled || players.length < 2) return;
     saveCurrentPlayer();
     currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
@@ -2573,6 +2641,173 @@
     renderWheel();
     if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
     renderTurnUI();
+  }
+
+  // ---------------- Torneo: bracket y avance de partidos ----------------
+  function shuffleIdx(n){
+    const ids = Array.from({length:n}, (_,i)=>i);
+    for(let i=ids.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [ids[i],ids[j]] = [ids[j],ids[i]];
+    }
+    return ids;
+  }
+
+  function buildFirstRound(){
+    const ids = shuffleIdx(players.length);
+    const round = [];
+    for(let i=0;i<ids.length;i+=2){
+      if(i+1 < ids.length){
+        round.push({ a: ids[i], b: ids[i+1], scoreA:0, scoreB:0, winner:null, bye:false, suddenDeathRounds:0 });
+      } else {
+        round.push({ a: ids[i], b: null, scoreA:0, scoreB:0, winner: ids[i], bye:true, suddenDeathRounds:0 });
+      }
+    }
+    return round;
+  }
+
+  function startTournament(){
+    if(!multiplayerEnabled || players.length < 2) return;
+    tournamentActive = true;
+    tournamentRounds = [buildFirstRound()];
+    currentRoundIdx = 0;
+    document.getElementById('viewBracketBtn').style.display = 'block';
+    proceedToNextPlayableMatch();
+  }
+
+  function proceedToNextPlayableMatch(){
+    const round = tournamentRounds[currentRoundIdx];
+    const idx = round.findIndex(m => m.winner === null);
+    if(idx === -1){
+      finishRoundOrTournament();
+      return;
+    }
+    currentMatchIdx = idx;
+    setupCurrentMatchTurn();
+  }
+
+  function setupCurrentMatchTurn(){
+    const match = tournamentRounds[currentRoundIdx][currentMatchIdx];
+    matchTurnPlayer = 'a';
+    matchQuestionsAsked = { a: QUESTIONS_PER_MATCH_PLAYER, b: QUESTIONS_PER_MATCH_PLAYER }; // preguntas RESTANTES por jugador
+    currentPlayerIndex = match.a;
+    loadCurrentPlayer();
+    renderScore(); renderStreak(); renderLegend(); renderWheel();
+    if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
+    renderTurnUI();
+  }
+
+  function finishRoundOrTournament(){
+    const round = tournamentRounds[currentRoundIdx];
+    const winners = round.map(m => m.winner);
+    if(winners.length === 1){
+      showTournamentChampion(winners[0]);
+      return;
+    }
+    currentRoundIdx++;
+    const nextRound = [];
+    for(let i=0;i<winners.length;i+=2){
+      if(i+1 < winners.length){
+        nextRound.push({ a: winners[i], b: winners[i+1], scoreA:0, scoreB:0, winner:null, bye:false, suddenDeathRounds:0 });
+      } else {
+        nextRound.push({ a: winners[i], b: null, scoreA:0, scoreB:0, winner: winners[i], bye:true, suddenDeathRounds:0 });
+      }
+    }
+    tournamentRounds.push(nextRound);
+    proceedToNextPlayableMatch();
+  }
+
+  function tournamentNextStep(){
+    const match = tournamentRounds[currentRoundIdx][currentMatchIdx];
+    const isCorrect = !lastAnswerWasWrong;
+    if(matchTurnPlayer === 'a'){
+      if(isCorrect) match.scoreA++;
+      matchQuestionsAsked.a--; // preguntas restantes de A
+    } else {
+      if(isCorrect) match.scoreB++;
+      matchQuestionsAsked.b--; // preguntas restantes de B
+    }
+
+    // ¿A alguno le queda alguna pregunta pendiente en esta ronda (normal o muerte súbita)?
+    if(matchQuestionsAsked.a > 0 || matchQuestionsAsked.b > 0){
+      if(matchQuestionsAsked.b > 0 && (matchTurnPlayer === 'a' || matchQuestionsAsked.a === 0)){
+        matchTurnPlayer = 'b';
+      } else {
+        matchTurnPlayer = 'a';
+      }
+      currentPlayerIndex = matchTurnPlayer === 'a' ? match.a : match.b;
+      loadCurrentPlayer();
+      renderScore(); renderStreak(); renderLegend(); renderWheel();
+      if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
+      renderTurnUI();
+      return;
+    }
+
+    // los dos terminaron sus preguntas de esta ronda
+    if(match.scoreA === match.scoreB){
+      // empate: muerte súbita, una pregunta más cada uno
+      match.suddenDeathRounds++;
+      matchQuestionsAsked = { a:1, b:1 };
+      matchTurnPlayer = 'a';
+      currentPlayerIndex = match.a;
+      loadCurrentPlayer();
+      renderScore(); renderStreak(); renderLegend(); renderWheel();
+      renderTurnUI();
+      return;
+    }
+
+    match.winner = match.scoreA > match.scoreB ? match.a : match.b;
+    renderTurnUI();
+    finishRoundOrTournament();
+  }
+
+  function showTournamentChampion(winnerIdx){
+    saveCurrentPlayer();
+    tournamentActive = false;
+    document.getElementById('championName').textContent = '🎉 ' + players[winnerIdx].name;
+    document.getElementById('championOverlay').classList.add('show');
+    launchConfetti();
+  }
+
+  function renderTournamentBanner(){
+    const banner = document.getElementById('tournamentBanner');
+    if(!tournamentActive){ banner.style.display = 'none'; return; }
+    const match = tournamentRounds[currentRoundIdx] && tournamentRounds[currentRoundIdx][currentMatchIdx];
+    if(!match){ banner.style.display = 'none'; return; }
+    const nameA = players[match.a] ? players[match.a].name : '?';
+    const nameB = match.b !== null && players[match.b] ? players[match.b].name : '?';
+    const turnName = matchTurnPlayer === 'a' ? nameA : nameB;
+    banner.innerHTML = '🏆 Ronda ' + (currentRoundIdx+1) + ' — ' +
+      '<b style="' + (matchTurnPlayer==='a' ? 'text-decoration:underline;' : '') + '">' + nameA + '</b> ' + match.scoreA +
+      ' vs ' + match.scoreB + ' <b style="' + (matchTurnPlayer==='b' ? 'text-decoration:underline;' : '') + '">' + nameB + '</b>' +
+      '<br><span style="font-weight:400; font-size:11px;">Turno de ' + turnName + '</span>';
+    banner.style.display = 'flex';
+  }
+
+  function renderBracket(){
+    const list = document.getElementById('bracketList');
+    list.innerHTML = '';
+    tournamentRounds.forEach((round, ri)=>{
+      const wrap = document.createElement('div');
+      wrap.className = 'bracketRound';
+      wrap.innerHTML = '<h4>Ronda ' + (ri+1) + '</h4>';
+      round.forEach((m, mi)=>{
+        const card = document.createElement('div');
+        const isCurrent = tournamentActive && ri === currentRoundIdx && mi === currentMatchIdx;
+        card.className = 'bracketMatch' + (isCurrent ? ' current' : '');
+        if(m.bye){
+          card.innerHTML = '<span class="bracketBye">' + (players[m.a]?players[m.a].name:'?') + ' pasa directo (sin rival)</span>';
+        } else {
+          const nameA = players[m.a] ? players[m.a].name : '?';
+          const nameB = players[m.b] ? players[m.b].name : '?';
+          card.innerHTML = `
+            <div class="bracketPlayerRow${m.winner===m.a?' winner':''}"><span>${m.winner===m.a?'🏆 ':''}${nameA}</span><span class="bpScore">${m.scoreA}</span></div>
+            <div class="bracketPlayerRow${m.winner===m.b?' winner':''}"><span>${m.winner===m.b?'🏆 ':''}${nameB}</span><span class="bpScore">${m.scoreB}</span></div>`;
+        }
+        wrap.appendChild(card);
+      });
+      list.appendChild(wrap);
+    });
   }
 
   // ---- Configuración del modo multijugador ----
@@ -2620,15 +2855,14 @@
     closeMultiplayerBtn.addEventListener('click', ()=>{
       multiplayerOverlay.style.display = 'none';
     });
-    startMultiplayerBtn.addEventListener('click', ()=>{
+    function setupPlayersFromForm(){
       const names = Array.from(playerInputs.querySelectorAll('input[type="text"]'))
         .map(inp => inp.value.trim())
         .filter(n => n.length > 0);
       if(names.length < 2){
         mpWarning.style.display = 'block';
-        return;
+        return false;
       }
-      // si ya había una partida multijugador, guardar antes de reiniciar
       if(multiplayerEnabled) saveCurrentPlayer();
 
       players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0 }));
@@ -2638,14 +2872,29 @@
       renderScore();
       renderStreak();
       renderLegend();
-      renderWheel();
       if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
+      return true;
+    }
+
+    startMultiplayerBtn.addEventListener('click', ()=>{
+      if(!setupPlayersFromForm()) return;
+      tournamentActive = false;
+      renderWheel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
     });
+    document.getElementById('startTournamentBtn').addEventListener('click', ()=>{
+      if(!setupPlayersFromForm()) return;
+      multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
+      multiplayerOverlay.style.display = 'none';
+      startTournament();
+    });
     exitMultiplayerBtn.addEventListener('click', ()=>{
       multiplayerEnabled = false;
+      tournamentActive = false;
+      tournamentRounds = [];
+      document.getElementById('viewBracketBtn').style.display = 'none';
       players = [];
       currentPlayerIndex = 0;
       score = 0;
@@ -2668,6 +2917,32 @@
       renderTurnUI();
       multiplayerBtn.textContent = '👥 Multijugador';
       multiplayerOverlay.style.display = 'none';
+    });
+
+    document.getElementById('viewBracketBtn').addEventListener('click', ()=>{
+      renderBracket();
+      document.getElementById('bracketOverlay').style.display = 'flex';
+    });
+    document.getElementById('closeBracketBtn').addEventListener('click', ()=>{
+      document.getElementById('bracketOverlay').style.display = 'none';
+    });
+
+    document.getElementById('championNewTournamentBtn').addEventListener('click', ()=>{
+      document.getElementById('championOverlay').classList.remove('show');
+      tournamentRounds = [];
+      currentRoundIdx = 0;
+      renderPlayerSetup();
+      multiplayerOverlay.style.display = 'flex';
+    });
+    document.getElementById('championFreePlayBtn').addEventListener('click', ()=>{
+      document.getElementById('championOverlay').classList.remove('show');
+      tournamentActive = false;
+      document.getElementById('viewBracketBtn').style.display = 'none';
+      currentPlayerIndex = 0;
+      loadCurrentPlayer();
+      renderScore(); renderStreak(); renderLegend(); renderWheel();
+      spinBtn.disabled = false;
+      renderTurnUI();
     });
   }
 
@@ -3954,7 +4229,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     spinBtn.disabled = false;
     checkWin();
-    nextTurn();
+
+    if(tournamentActive){
+      tournamentNextStep();
+    } else {
+      nextTurn();
+    }
   });
 
   function checkWin(){
