@@ -348,6 +348,12 @@
     font-size:12px; font-weight:800; color:var(--text-dim); min-width:28px; text-align:right; flex:none;
   }
   #qTimerLabel.danger{ color:var(--bad); }
+  #hintBox{
+    background:rgba(255,209,102,0.1); border:1.5px dashed var(--accent); border-radius:9px;
+    padding:9px 12px; margin:0 0 12px;
+    font-family:var(--font-display); font-size:15px; font-weight:700;
+    letter-spacing:0.1em; text-align:center; color:var(--accent);
+  }
   #qImage{
     clear:both;
     width:100%;
@@ -368,7 +374,7 @@
     clear:both;
   }
   #wildcardsRow{
-    display:flex; gap:6px;
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;
     margin:0 0 14px;
   }
   .wildcardBtn{
@@ -378,11 +384,12 @@
     border:1.5px solid var(--panel-line);
     color:var(--text-dim);
     border-radius:9px;
-    padding:7px 4px;
-    font-size:11px; font-weight:700;
+    padding:7px 3px;
+    font-size:10px; font-weight:700;
     font-family:inherit;
     cursor:pointer;
     transition:all .15s ease;
+    white-space:nowrap;
   }
   .wildcardBtn .wcCount{
     font-size:10px; font-weight:800; color:var(--accent);
@@ -1084,7 +1091,9 @@
       <button id="wildcardFifty" class="wildcardBtn" type="button">🎯 50/50<span class="wcCount">3</span></button>
       <button id="wildcardSkip" class="wildcardBtn" type="button">⏭️ Pasar<span class="wcCount">3</span></button>
       <button id="wildcardDouble" class="wildcardBtn" type="button">🎲 Doble<span class="wcCount">3</span></button>
+      <button id="wildcardHint" class="wildcardBtn" type="button">💡 Pista<span class="wcCount">3</span></button>
     </div>
+    <div id="hintBox" style="display:none;"></div>
     <div id="options"></div>
     <div id="feedback"></div>
     <div id="explanationBox" style="display:none;"></div>
@@ -1797,8 +1806,8 @@
   const QUESTIONS_PER_MATCH_PLAYER = 3;
 
   // -------- Comodines --------
-  let wildcards = { fifty: 3, skip: 3, double: 3 };
-  function freshWildcards(){ return { fifty: 3, skip: 3, double: 3 }; }
+  let wildcards = { fifty: 3, skip: 3, double: 3, hint: 3 };
+  function freshWildcards(){ return { fifty: 3, skip: 3, double: 3, hint: 3 }; }
   let streak = 0;
 
   function freshTopicState(){
@@ -3975,20 +3984,33 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   // ---------------- Comodines ----------------
   let fiftyFiftyUsedThisQuestion = false;
   let doubleOrNothingActive = false;
+  let hintUsedThisQuestion = false;
 
   const wildcardFiftyBtn = document.getElementById('wildcardFifty');
   const wildcardSkipBtn = document.getElementById('wildcardSkip');
   const wildcardDoubleBtn = document.getElementById('wildcardDouble');
+  const wildcardHintBtn = document.getElementById('wildcardHint');
+  const hintBox = document.getElementById('hintBox');
 
   function renderWildcardButtons(){
     wildcardFiftyBtn.querySelector('.wcCount').textContent = wildcards.fifty;
     wildcardSkipBtn.querySelector('.wcCount').textContent = wildcards.skip;
     wildcardDoubleBtn.querySelector('.wcCount').textContent = wildcards.double;
+    wildcardHintBtn.querySelector('.wcCount').textContent = wildcards.hint;
 
     wildcardFiftyBtn.disabled = wildcards.fifty <= 0 || fiftyFiftyUsedThisQuestion;
     wildcardSkipBtn.disabled = wildcards.skip <= 0;
     wildcardDoubleBtn.disabled = wildcards.double <= 0 && !doubleOrNothingActive;
     wildcardDoubleBtn.classList.toggle('armed', doubleOrNothingActive);
+    wildcardHintBtn.disabled = wildcards.hint <= 0 || hintUsedThisQuestion;
+  }
+
+  // enmascara la respuesta correcta dejando solo la primera letra de cada palabra visible
+  function maskAnswer(text){
+    return text.split(' ').map(word=>{
+      if(word.length <= 2) return word;
+      return word[0] + '_'.repeat(word.length - 1);
+    }).join(' ');
   }
 
   wildcardFiftyBtn.addEventListener('click', ()=>{
@@ -4036,6 +4058,24 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     renderWildcardButtons();
   });
 
+  wildcardHintBtn.addEventListener('click', ()=>{
+    if(wildcards.hint <= 0 || hintUsedThisQuestion) return;
+    const allBtns = optionsDiv.querySelectorAll('.option');
+    if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
+
+    const cost = Math.max(10, (state[currentTopicKey] || 1) * 5);
+    score = Math.max(0, score - cost);
+    renderScore();
+
+    const masked = maskAnswer(currentQuestionData.options[currentQuestionData.correct]);
+    hintBox.textContent = '💡 ' + masked + '  (-' + cost + ' puntos)';
+    hintBox.style.display = 'block';
+
+    wildcards.hint--;
+    hintUsedThisQuestion = true;
+    renderWildcardButtons();
+  });
+
   function openQuestion(topicKey){
     currentTopicKey = topicKey;
     const topic = TOPICS.find(t=>t.key===topicKey);
@@ -4073,6 +4113,9 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     // reset de comodines para esta pregunta
     fiftyFiftyUsedThisQuestion = false;
     doubleOrNothingActive = false;
+    hintUsedThisQuestion = false;
+    hintBox.style.display = 'none';
+    hintBox.textContent = '';
     renderWildcardButtons();
 
     const order = qData.options.map((opt,idx)=>({opt,idx}));
