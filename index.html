@@ -816,6 +816,30 @@
     width:10px; height:10px; border-radius:3px; display:inline-block;
   }
 
+  #moreMenuBtn{ position:relative; }
+  .mmBadgeDot{
+    position:absolute; top:-3px; right:-3px;
+    width:11px; height:11px; border-radius:50%;
+    background:var(--bad); border:2px solid var(--panel);
+  }
+  .moreMenuSectionTitle{
+    font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--text-dim); margin:16px 0 6px;
+  }
+  .moreMenuSectionTitle:first-child{ margin-top:0; }
+  .moreMenuRow{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:#1a1428; border:1px solid var(--panel-line); border-radius:10px;
+    padding:11px 12px; margin-bottom:7px;
+    font-family:inherit; font-size:13px; font-weight:700; color:var(--text);
+    cursor:pointer; text-align:left;
+  }
+  .moreMenuRow .mmIcon{ font-size:17px; flex:none; }
+  .moreMenuRow .mmLabel{ flex:1; }
+  .moreMenuRow .mmStatus{ font-size:10.5px; color:var(--text-dim); font-weight:600; flex:none; max-width:40%; text-align:right; }
+  .moreMenuRow .mmChevron{ color:var(--text-dim); flex:none; }
+  .moreMenuRow.pending{ border-color:var(--accent); background:rgba(255,209,102,0.08); }
+
   #tournamentBanner{
     display:none;
     align-items:center; justify-content:center; gap:8px;
@@ -859,19 +883,21 @@
   <div id="wheelResultLabel" style="display:none;"></div>
 
   <button id="spinBtn">Girar la rueda</button>
-  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; justify-content:center;">
-    <button id="chooseTopicsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🎯 Elegir mis temas</button>
-    <button id="timerModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">⏱️ Contrarreloj: Desactivado</button>
-    <button id="multiplayerBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">👥 Multijugador</button>
-    <button id="statsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📊 Estadísticas</button>
-    <button id="achievementsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏅 Logros</button>
-    <button id="dailyBtn" style="background:transparent; border:1.5px solid var(--accent); color:var(--accent); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📅 Desafío diario</button>
-    <button id="shareBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📤 Compartir</button>
-    <button id="leaderboardBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🏆 Posiciones</button>
-    <button id="a11yBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🔤 Tamaño de texto</button>
-    <button id="reviewModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📖 Modo repaso</button>
-    <button id="myQuestionsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">✏️ Mis preguntas</button>
-    <button id="survivalModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">💀 Supervivencia</button>
+  <button id="moreMenuBtn" style="margin-top:10px; background:var(--panel); border:1.5px solid var(--panel-line); color:var(--text); padding:10px 22px; border-radius:20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:7px;">☰ Más opciones</button>
+
+  <div style="display:none;">
+    <button id="chooseTopicsBtn">🎯 Elegir mis temas</button>
+    <button id="timerModeBtn">⏱️ Contrarreloj: Desactivado</button>
+    <button id="multiplayerBtn">👥 Multijugador</button>
+    <button id="statsBtn">📊 Estadísticas</button>
+    <button id="achievementsBtn">🏅 Logros</button>
+    <button id="dailyBtn">📅 Desafío diario</button>
+    <button id="shareBtn">📤 Compartir</button>
+    <button id="leaderboardBtn">🏆 Posiciones</button>
+    <button id="a11yBtn">🔤 Tamaño de texto</button>
+    <button id="reviewModeBtn">📖 Modo repaso</button>
+    <button id="myQuestionsBtn">✏️ Mis preguntas</button>
+    <button id="survivalModeBtn">💀 Supervivencia</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -884,6 +910,14 @@
       <button id="genBtn" style="flex:1;">Generar más preguntas (IA)</button>
       <button id="settingsBtn" title="Configurar clave de API" style="width:44px; flex:none; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:16px;">⚙️</button>
     </div>
+  </div>
+</div>
+
+<div id="moreMenuOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:45; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:18px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 12px; font-size:15px;">☰ Más opciones</h3>
+    <div id="moreMenuList" style="overflow-y:auto; flex:1;"></div>
+    <button id="closeMoreMenuBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2233,6 +2267,7 @@
 
         dailyHistory[today] = isCorrect;
         saveDailyHistory();
+        if(typeof updateMoreMenuBadge === 'function') updateMoreMenuBadge();
 
         if(!stats.perTopic[daily.topic.key]) stats.perTopic[daily.topic.key] = { correct:0, total:0 };
         stats.perTopic[daily.topic.key].total++;
@@ -4820,6 +4855,96 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     clearTimeout(bigFlashTimer);
     bigFlashTimer = setTimeout(()=>{ bigFlashEl.classList.remove('show'); }, 1150);
+  }
+
+  // -------- Menú "Más opciones": agrupa todos los botones sueltos por categoría --------
+  const MORE_MENU_SECTIONS = [
+    { title:'🎮 Modos de juego', items:[
+      { id:'chooseTopicsBtn', icon:'🎯', label:'Elegir mis temas' },
+      { id:'timerModeBtn', icon:'⏱️', label:'Contrarreloj', toggle:true },
+      { id:'reviewModeBtn', icon:'📖', label:'Modo repaso', toggle:true },
+      { id:'survivalModeBtn', icon:'💀', label:'Supervivencia', toggle:true },
+    ]},
+    { title:'👥 Multijugador', items:[
+      { id:'multiplayerBtn', icon:'👥', label:'Multijugador y torneo' },
+    ]},
+    { title:'📈 Tu progreso', items:[
+      { id:'statsBtn', icon:'📊', label:'Estadísticas' },
+      { id:'achievementsBtn', icon:'🏅', label:'Logros' },
+      { id:'dailyBtn', icon:'📅', label:'Desafío diario', special:'daily' },
+    ]},
+    { title:'🌐 Compartir', items:[
+      { id:'shareBtn', icon:'📤', label:'Compartir puntaje' },
+      { id:'leaderboardBtn', icon:'🏆', label:'Tabla de posiciones' },
+    ]},
+    { title:'🎨 Personalizar', items:[
+      { id:'myQuestionsBtn', icon:'✏️', label:'Mis preguntas' },
+      { id:'a11yBtn', icon:'🔤', label:'Tamaño de texto' },
+    ]},
+  ];
+
+  const moreMenuBtn = document.getElementById('moreMenuBtn');
+  const moreMenuOverlay = document.getElementById('moreMenuOverlay');
+  const moreMenuList = document.getElementById('moreMenuList');
+
+  async function isDailyPending(){
+    const last = await storageGet('daily_last_played');
+    return last !== todayStr();
+  }
+
+  async function updateMoreMenuBadge(){
+    if(!moreMenuBtn) return;
+    const pending = await isDailyPending();
+    const existing = moreMenuBtn.querySelector('.mmBadgeDot');
+    if(pending && !existing){
+      const dot = document.createElement('span');
+      dot.className = 'mmBadgeDot';
+      moreMenuBtn.appendChild(dot);
+    } else if(!pending && existing){
+      existing.remove();
+    }
+  }
+  updateMoreMenuBadge();
+
+  async function renderMoreMenu(){
+    moreMenuList.innerHTML = '';
+    const pending = await isDailyPending();
+    MORE_MENU_SECTIONS.forEach(section=>{
+      const h = document.createElement('div');
+      h.className = 'moreMenuSectionTitle';
+      h.textContent = section.title;
+      moreMenuList.appendChild(h);
+
+      section.items.forEach(item=>{
+        const srcBtn = document.getElementById(item.id);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'moreMenuRow' + (item.special === 'daily' && pending ? ' pending' : '');
+        const statusText = (item.toggle && srcBtn) ? srcBtn.textContent.replace(item.icon,'').replace(/^[:\s]+/,'').trim() : '';
+        const rightMark = item.special === 'daily' && pending ? '¡Nuevo hoy!' : statusText;
+        row.innerHTML = `<span class="mmIcon">${item.icon}</span><span class="mmLabel">${item.label}</span><span class="mmStatus">${rightMark}</span><span class="mmChevron">›</span>`;
+        row.addEventListener('click', async ()=>{
+          if(srcBtn) srcBtn.click();
+          if(item.toggle){
+            setTimeout(renderMoreMenu, 30); // refresca el estado sin cerrar el menú
+          } else {
+            moreMenuOverlay.style.display = 'none';
+          }
+          if(item.special === 'daily') setTimeout(updateMoreMenuBadge, 300);
+        });
+        moreMenuList.appendChild(row);
+      });
+    });
+  }
+
+  if(moreMenuBtn){
+    moreMenuBtn.addEventListener('click', ()=>{
+      renderMoreMenu();
+      moreMenuOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeMoreMenuBtn').addEventListener('click', ()=>{
+      moreMenuOverlay.style.display = 'none';
+    });
   }
 
   renderScore();
