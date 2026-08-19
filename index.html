@@ -804,6 +804,18 @@
   .bracketPlayerRow .bpScore{ font-weight:800; color:var(--text-dim); }
   .bracketBye{ color:var(--text-dim); font-size:11px; font-style:italic; }
 
+  .calWeekCol{ display:flex; flex-direction:column; gap:3px; flex:none; }
+  .calDay{
+    width:12px; height:12px; border-radius:3px;
+    background:#2a2a3c; flex:none;
+  }
+  .calDay.correct{ background:var(--good); }
+  .calDay.wrong{ background:var(--bad); opacity:0.65; }
+  .calDay.empty, .calDay.future{ background:transparent; }
+  .calLegendDot{
+    width:10px; height:10px; border-radius:3px; display:inline-block;
+  }
+
   #tournamentBanner{
     display:none;
     align-items:center; justify-content:center; gap:8px;
@@ -996,9 +1008,28 @@
   <div style="background:var(--panel); border:2px solid var(--accent); border-radius:16px; padding:20px; max-width:380px; width:100%;">
     <h3 style="margin:0 0 2px; font-size:16px;">🌟 Desafío diario</h3>
     <p id="dailyDateLabel" style="font-size:11px; color:var(--text-dim); margin:0 0 4px;"></p>
-    <p id="dailyStreakInfo" style="font-size:12px; color:var(--accent); font-weight:700; margin:0 0 14px;"></p>
+    <p id="dailyStreakInfo" style="font-size:12px; color:var(--accent); font-weight:700; margin:0 0 10px;"></p>
+    <button id="viewCalendarBtn" type="button" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:7px 12px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer; margin-bottom:12px;">📅 Ver calendario</button>
     <div id="dailyBody"></div>
     <button id="closeDailyBtn" style="width:100%; margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="calendarOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.88); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:55; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:400px; width:100%;">
+    <h3 style="margin:0 0 4px; font-size:15px;">📅 Tu racha diaria</h3>
+    <p id="calStats" style="font-size:11.5px; color:var(--text-dim); margin:0 0 14px;"></p>
+    <div id="calendarScroll" style="overflow-x:auto; padding-bottom:6px;">
+      <div id="calendarGrid" style="display:inline-flex; gap:3px;"></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:10.5px; color:var(--text-dim);">
+      <span>Menos</span>
+      <span class="calLegendDot" style="background:#2a2a3c;"></span>
+      <span class="calLegendDot" style="background:var(--bad); opacity:0.6;"></span>
+      <span class="calLegendDot" style="background:var(--good);"></span>
+      <span>Más</span>
+    </div>
+    <button id="closeCalendarBtn" style="width:100%; margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2037,6 +2068,20 @@
   function todayStr(){ return dateStr(new Date()); }
   function yesterdayStr(){ const d = new Date(); d.setDate(d.getDate()-1); return dateStr(d); }
 
+  // -------- Historial del desafío diario (calendario tipo "contribuciones") --------
+  // dailyHistory['YYYY-MM-DD'] = true (acertó) | false (falló)
+  let dailyHistory = {};
+  async function loadDailyHistory(){
+    const raw = await storageGet('daily_history');
+    if(raw){
+      try{ Object.assign(dailyHistory, JSON.parse(raw)); }catch(e){ /* dato corrupto, se ignora */ }
+    }
+  }
+  loadDailyHistory();
+  async function saveDailyHistory(){
+    await storageSet('daily_history', JSON.stringify(dailyHistory));
+  }
+
   function hashStr(s){
     let h = 0;
     for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
@@ -2161,6 +2206,9 @@
         await storageSet('daily_streak', String(newStreak));
         if(newStreak >= 7) unlockAchievement('dailyweek');
 
+        dailyHistory[today] = isCorrect;
+        saveDailyHistory();
+
         if(!stats.perTopic[daily.topic.key]) stats.perTopic[daily.topic.key] = { correct:0, total:0 };
         stats.perTopic[daily.topic.key].total++;
         stats.total++;
@@ -2211,6 +2259,81 @@
     });
     closeDailyBtn.addEventListener('click', ()=>{
       dailyOverlay.style.display = 'none';
+    });
+  }
+
+  // -------- Calendario tipo "contribuciones" del desafío diario --------
+  function buildCalendarDays(daysBack){
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - daysBack);
+    start.setDate(start.getDate() - start.getDay()); // retrocede hasta el domingo anterior
+    const days = [];
+    const cursor = new Date(start);
+    while(cursor <= today){
+      days.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    while(days.length % 7 !== 0) days.push(null); // completa la última semana
+    return days;
+  }
+
+  function renderCalendar(){
+    const days = buildCalendarDays(90); // ~13 semanas
+    const weeks = [];
+    for(let i=0; i<days.length; i+=7) weeks.push(days.slice(i, i+7));
+
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    const todayKey = todayStr();
+
+    weeks.forEach(week=>{
+      const col = document.createElement('div');
+      col.className = 'calWeekCol';
+      week.forEach(day=>{
+        const cell = document.createElement('div');
+        if(!day){
+          cell.className = 'calDay empty';
+        } else {
+          const key = dateStr(day);
+          if(key > todayKey){
+            cell.className = 'calDay future';
+          } else if(dailyHistory[key] === true){
+            cell.className = 'calDay correct';
+            cell.title = key + ' — acertaste';
+          } else if(dailyHistory[key] === false){
+            cell.className = 'calDay wrong';
+            cell.title = key + ' — fallaste';
+          } else {
+            cell.className = 'calDay';
+            cell.title = key + ' — no jugaste';
+          }
+        }
+        col.appendChild(cell);
+      });
+      grid.appendChild(col);
+    });
+
+    const totalPlayed = Object.keys(dailyHistory).length;
+    const totalCorrect = Object.values(dailyHistory).filter(v => v === true).length;
+    document.getElementById('calStats').textContent =
+      totalPlayed + ' día' + (totalPlayed===1?'':'s') + ' jugados en total · ' + totalCorrect + ' acertado' + (totalCorrect===1?'':'s');
+
+    // desplazar el scroll horizontal hasta el final (hoy) al abrir
+    const scroller = document.getElementById('calendarScroll');
+    setTimeout(()=>{ scroller.scrollLeft = scroller.scrollWidth; }, 0);
+  }
+
+  const viewCalendarBtn = document.getElementById('viewCalendarBtn');
+  const calendarOverlay = document.getElementById('calendarOverlay');
+  if(viewCalendarBtn){
+    viewCalendarBtn.addEventListener('click', ()=>{
+      renderCalendar();
+      calendarOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeCalendarBtn').addEventListener('click', ()=>{
+      calendarOverlay.style.display = 'none';
     });
   }
 
@@ -3263,6 +3386,8 @@
       await storageDelete('achievements_solo');
       await storageDelete('daily_last_played');
       await storageDelete('daily_streak');
+      await storageDelete('daily_history');
+      Object.keys(dailyHistory).forEach(k => delete dailyHistory[k]);
       await storageDelete('missed_solo');
       await storageDelete('survival_best');
 
