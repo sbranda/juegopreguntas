@@ -128,6 +128,15 @@
     #streakBadge{ animation:none !important; }
   }
 
+  #survivalBadge{
+    font-family: var(--font-display);
+    font-size:12.5px; font-weight:700; color:#ffb454;
+    margin:6px 0 0;
+    background:rgba(255,159,28,0.12);
+    border:1.5px solid rgba(255,159,28,0.5);
+    padding:4px 14px; border-radius:16px;
+  }
+
   /* ---- Wheel ---- */
   #wheelWrap{
     position:relative;
@@ -434,17 +443,18 @@
     font-weight:800; font-size:14px; cursor:pointer;
   }
 
-  #winOverlay{
+  .fullOverlay{
     position:fixed; inset:0;
     background:rgba(8,8,14,0.92);
     display:none; align-items:center; justify-content:center;
     z-index:30; text-align:center; padding:24px;
+    flex-direction:column; gap:2px;
   }
-  #winOverlay.show{ display:flex; flex-direction:column; align-items:center; }
-  #winOverlay h2{
+  .fullOverlay.show{ display:flex; }
+  .fullOverlay h2{
     font-size:26px; color:var(--accent); margin:0 0 10px;
   }
-  #winOverlay p{ color:var(--text-dim); max-width:360px; margin:0 0 20px; }
+  .fullOverlay p{ color:var(--text-dim); max-width:360px; margin:0 0 20px; }
 
   /* ---- Bank expansion panel ---- */
   #bankPanel{
@@ -777,6 +787,7 @@
 
   <div id="score">🏆 <span id="turnLabel" style="display:none;"></span><span id="scoreVal">0</span> puntos</div>
   <div id="streakBadge" style="display:none;">🔥 Racha x<span id="streakVal">0</span></div>
+  <div id="survivalBadge" style="display:none;">💀 Supervivencia: <span id="survivalVal">0</span> · Récord: <span id="survivalBestVal">0</span></div>
   <div id="playerChips" style="display:none;"></div>
   <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
@@ -804,6 +815,7 @@
     <button id="a11yBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">🔤 Tamaño de texto</button>
     <button id="reviewModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">📖 Modo repaso</button>
     <button id="myQuestionsBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">✏️ Mis preguntas</button>
+    <button id="survivalModeBtn" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:8px 18px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;">💀 Supervivencia</button>
   </div>
 
   <div id="legendGrid"></div>
@@ -836,7 +848,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario y el banco de repaso</b>. Tu clave, los temas favoritos y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso y récord de supervivencia</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -1044,12 +1056,22 @@
   </div>
 </div>
 
-<div id="winOverlay">
+<div id="winOverlay" class="fullOverlay">
   <h2>🎉 ¡Nivel máximo en todo!</h2>
   <p><span id="winnerName">Llegaste</span> al nivel 15 en todos tus temas. Puedes seguir jugando para sumar más puntos.</p>
   <div style="display:flex; gap:8px;">
     <button id="closeWinBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">Seguir jugando</button>
     <button id="shareFromWinBtn" style="background:transparent;border:1.5px solid var(--accent);color:var(--accent);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">📤 Compartir</button>
+  </div>
+</div>
+
+<div id="survivalOverlay" class="fullOverlay">
+  <h2 style="color:var(--bad);">💀 Fin de la racha</h2>
+  <p>Aguantaste <b id="survivalResultCount" style="color:var(--accent); font-size:1.3em;">0</b> preguntas seguidas.</p>
+  <p style="font-size:13px; color:var(--text-dim); margin-top:-8px;">Récord: <span id="survivalResultBest">0</span></p>
+  <div style="display:flex; gap:8px;">
+    <button id="survivalRetryBtn" style="background:var(--bad);color:#fff;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">🔄 Intentar de nuevo</button>
+    <button id="survivalExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir</button>
   </div>
 </div>
 
@@ -1708,6 +1730,7 @@
   let spinning = false;
   let currentTopicKey = null;
   let currentQuestionData = null;
+  let lastAnswerWasWrong = false;
 
   // -------- Multijugador local --------
   // "state" y "score" arriba siempre representan al jugador que tiene el turno.
@@ -1819,6 +1842,33 @@
     Object.values(missedQuestions).forEach(topicMap => { n += Object.keys(topicMap).length; });
     return n;
   }
+
+  // -------- Modo supervivencia: una vida, termina en el primer error --------
+  let survivalModeEnabled = false;
+  let survivalStreak = 0;      // aciertos seguidos en el intento actual
+  let soloSurvivalBest = 0;    // récord persistido en modo un jugador
+  let survivalBest = 0;        // apunta a quien tiene el turno (como stats, achievements, etc.)
+
+  async function loadSoloSurvivalBest(){
+    const raw = await storageGet('survival_best');
+    if(raw) soloSurvivalBest = parseInt(raw, 10) || 0;
+    survivalBest = soloSurvivalBest;
+  }
+  loadSoloSurvivalBest();
+
+  async function saveSoloSurvivalBest(){
+    if(multiplayerEnabled) return;
+    await storageSet('survival_best', String(soloSurvivalBest));
+  }
+
+  async function loadSurvivalMode(){
+    const saved = await storageGet('survival_mode');
+    if(saved === 'on'){
+      survivalModeEnabled = true;
+      if(typeof updateSurvivalBtnLabel === 'function') updateSurvivalBtnLabel();
+    }
+  }
+  loadSurvivalMode();
 
   // -------- Preguntas personalizadas (mías, agregadas a mano) --------
   // customQuestions[topicKey][level] = array de {q, options, correct, image, explanation, id, custom:true}
@@ -2473,6 +2523,9 @@
     achievements = p.achievements;
     if(!p.missed) p.missed = freshMissed();
     missedQuestions = p.missed;
+    survivalStreak = p.survivalStreak || 0;
+    survivalBest = p.survivalBest || 0;
+    if(typeof renderSurvivalBadge === 'function') renderSurvivalBadge();
   }
 
   function saveCurrentPlayer(){
@@ -2485,6 +2538,8 @@
     p.stats = stats;
     p.achievements = achievements;
     p.missed = missedQuestions;
+    p.survivalStreak = survivalStreak;
+    p.survivalBest = survivalBest;
   }
 
   function renderTurnUI(){
@@ -2576,7 +2631,7 @@
       // si ya había una partida multijugador, guardar antes de reiniciar
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed() }));
+      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0 }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -2601,6 +2656,9 @@
       stats = soloStats;
       achievements = soloAchievements;
       missedQuestions = soloMissed;
+      survivalStreak = 0;
+      survivalBest = soloSurvivalBest;
+      if(typeof renderSurvivalBadge === 'function') renderSurvivalBadge();
       renderWildcardButtons();
       renderScore();
       renderStreak();
@@ -2722,16 +2780,21 @@
       soloAchievements.length = 0;
       Object.keys(soloMissed).forEach(k => delete soloMissed[k]);
       reviewModeEnabled = false;
+      soloSurvivalBest = 0;
+      survivalBest = 0;
+      survivalStreak = 0;
       await storageDelete('stats_solo');
       await storageDelete('achievements_solo');
       await storageDelete('daily_last_played');
       await storageDelete('daily_streak');
       await storageDelete('missed_solo');
+      await storageDelete('survival_best');
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
           p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); p.streak = 0;
           p.stats = freshStats(); p.achievements = []; p.missed = freshMissed();
+          p.survivalStreak = 0; p.survivalBest = 0;
         });
       }
 
@@ -2748,6 +2811,8 @@
       renderLegend();
       renderWheel();
       if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
+      if(typeof renderSurvivalBadge==='function') renderSurvivalBadge();
+      if(typeof updateSurvivalBtnLabel==='function') updateSurvivalBtnLabel();
       renderTurnUI();
       renderWildcardButtons();
       updateBankUI();
@@ -3392,6 +3457,67 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   }
   updateReviewBtnLabel();
 
+  // ---------------- Modo supervivencia ----------------
+  const survivalModeBtn = document.getElementById('survivalModeBtn');
+  const survivalBadge = document.getElementById('survivalBadge');
+  const survivalVal = document.getElementById('survivalVal');
+  const survivalBestVal = document.getElementById('survivalBestVal');
+  const survivalOverlay = document.getElementById('survivalOverlay');
+
+  function updateSurvivalBtnLabel(){
+    if(!survivalModeBtn) return;
+    survivalModeBtn.textContent = survivalModeEnabled ? '💀 Supervivencia: ON' : '💀 Supervivencia';
+    survivalModeBtn.style.borderColor = survivalModeEnabled ? 'var(--bad)' : 'var(--panel-line)';
+    survivalModeBtn.style.color = survivalModeEnabled ? 'var(--bad)' : 'var(--text-dim)';
+  }
+
+  function renderSurvivalBadge(){
+    if(!survivalBadge) return;
+    if(survivalModeEnabled){
+      survivalVal.textContent = survivalStreak;
+      survivalBestVal.textContent = survivalBest;
+      survivalBadge.style.display = 'inline-block';
+    } else {
+      survivalBadge.style.display = 'none';
+    }
+  }
+
+  if(survivalModeBtn){
+    survivalModeBtn.addEventListener('click', async ()=>{
+      survivalModeEnabled = !survivalModeEnabled;
+      if(survivalModeEnabled) survivalStreak = 0; // arranca una vida nueva al activarlo
+      updateSurvivalBtnLabel();
+      renderSurvivalBadge();
+      await storageSet('survival_mode', survivalModeEnabled ? 'on' : 'off');
+    });
+  }
+  updateSurvivalBtnLabel();
+  renderSurvivalBadge();
+
+  function survivalGameOver(){
+    document.getElementById('survivalResultCount').textContent = survivalStreak;
+    document.getElementById('survivalResultBest').textContent = survivalBest;
+    survivalOverlay.classList.add('show');
+  }
+
+  document.getElementById('survivalRetryBtn').addEventListener('click', ()=>{
+    survivalStreak = 0;
+    renderSurvivalBadge();
+    survivalOverlay.classList.remove('show');
+    spinBtn.disabled = false;
+    nextTurn();
+  });
+  document.getElementById('survivalExitBtn').addEventListener('click', async ()=>{
+    survivalModeEnabled = false;
+    survivalStreak = 0;
+    updateSurvivalBtnLabel();
+    renderSurvivalBadge();
+    await storageSet('survival_mode', 'off');
+    survivalOverlay.classList.remove('show');
+    spinBtn.disabled = false;
+    nextTurn();
+  });
+
   // ---------------- Mis preguntas (personalizadas) ----------------
   const myQuestionsBtn = document.getElementById('myQuestionsBtn');
   const myQuestionsOverlay = document.getElementById('myQuestionsOverlay');
@@ -3706,6 +3832,16 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     document.querySelectorAll('.wildcardBtn').forEach(b=>b.disabled = true);
 
     const isCorrect = selectedIdx === correctIdx;
+    lastAnswerWasWrong = !isCorrect;
+    if(survivalModeEnabled){
+      if(isCorrect){
+        survivalStreak++;
+        survivalBest = Math.max(survivalBest, survivalStreak);
+        soloSurvivalBest = Math.max(soloSurvivalBest, survivalBest);
+        saveSoloSurvivalBest();
+      }
+      renderSurvivalBadge();
+    }
     allBtns.forEach(b=>{
       if(b.textContent === currentQuestionData.options[correctIdx]){
         b.classList.add('correct');
@@ -3810,6 +3946,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   continueBtn.addEventListener('click', ()=>{
     stopTimer();
     modalOverlay.classList.remove('show');
+
+    if(survivalModeEnabled && lastAnswerWasWrong){
+      survivalGameOver();
+      return; // no reactiva el giro ni pasa el turno hasta que elija reintentar o salir
+    }
+
     spinBtn.disabled = false;
     checkWin();
     nextTurn();
