@@ -528,6 +528,17 @@
     background:transparent; border:1.5px solid var(--panel-line);
     color:var(--text-dim); border-radius:8px; cursor:pointer; font-size:16px;
   }
+  .playerRow .avatarPickBtn{
+    flex:none; width:38px; height:38px;
+    background:#12121a; border:1.5px solid var(--panel-line);
+    border-radius:50%; cursor:pointer; font-size:18px;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .playerRow .colorPickBtn{
+    flex:none; width:24px; height:24px;
+    border:2px solid rgba(255,255,255,0.5);
+    border-radius:50%; cursor:pointer; padding:0;
+  }
 
   #turnLabel{
     font-weight:800; margin-right:6px;
@@ -2211,7 +2222,9 @@
   }
 
   function currentPlayerLabel(){
-    return (multiplayerEnabled && players.length) ? players[currentPlayerIndex].name : 'Modo individual';
+    if(!(multiplayerEnabled && players.length)) return 'Modo individual';
+    const p = players[currentPlayerIndex];
+    return (p.avatar ? p.avatar + ' ' : '') + p.name;
   }
 
   function buildShareText(){
@@ -2627,13 +2640,18 @@
       return;
     }
     turnLabel.style.display = 'inline';
-    turnLabel.textContent = players[currentPlayerIndex].name + ':';
+    turnLabel.textContent = (players[currentPlayerIndex].avatar || '') + ' ' + players[currentPlayerIndex].name + ':';
     playerChips.style.display = 'flex';
     playerChips.innerHTML = '';
     players.forEach((p, i) => {
       const chip = document.createElement('span');
       chip.className = 'playerChip' + (i === currentPlayerIndex ? ' active' : '');
-      chip.textContent = (i === currentPlayerIndex ? '🎯 ' : '') + p.name + ': ' + p.score;
+      chip.style.borderColor = p.color || 'var(--panel-line)';
+      if(i === currentPlayerIndex && p.color){
+        chip.style.background = p.color + '26'; // tinte suave del color propio
+        chip.style.color = p.color;
+      }
+      chip.textContent = (p.avatar ? p.avatar + ' ' : '') + p.name + ': ' + p.score;
       playerChips.appendChild(chip);
     });
   }
@@ -2773,7 +2791,8 @@
   function showTournamentChampion(winnerIdx){
     saveCurrentPlayer();
     tournamentActive = false;
-    document.getElementById('championName').textContent = '🎉 ' + players[winnerIdx].name;
+    const w = players[winnerIdx];
+    document.getElementById('championName').textContent = (w.avatar ? w.avatar + ' ' : '🎉 ') + w.name;
     document.getElementById('championOverlay').classList.add('show');
     launchConfetti();
   }
@@ -2783,8 +2802,9 @@
     if(!tournamentActive){ banner.style.display = 'none'; return; }
     const match = tournamentRounds[currentRoundIdx] && tournamentRounds[currentRoundIdx][currentMatchIdx];
     if(!match){ banner.style.display = 'none'; return; }
-    const nameA = players[match.a] ? players[match.a].name : '?';
-    const nameB = match.b !== null && players[match.b] ? players[match.b].name : '?';
+    const pA = players[match.a], pB = match.b !== null ? players[match.b] : null;
+    const nameA = pA ? (pA.avatar ? pA.avatar+' ' : '') + pA.name : '?';
+    const nameB = pB ? (pB.avatar ? pB.avatar+' ' : '') + pB.name : '?';
     const turnName = matchTurnPlayer === 'a' ? nameA : nameB;
     banner.innerHTML = '🏆 Ronda ' + (currentRoundIdx+1) + ' — ' +
       '<b style="' + (matchTurnPlayer==='a' ? 'text-decoration:underline;' : '') + '">' + nameA + '</b> ' + match.scoreA +
@@ -2805,10 +2825,12 @@
         const isCurrent = tournamentActive && ri === currentRoundIdx && mi === currentMatchIdx;
         card.className = 'bracketMatch' + (isCurrent ? ' current' : '');
         if(m.bye){
-          card.innerHTML = '<span class="bracketBye">' + (players[m.a]?players[m.a].name:'?') + ' pasa directo (sin rival)</span>';
+          const pBye = players[m.a];
+          card.innerHTML = '<span class="bracketBye">' + (pBye ? (pBye.avatar?pBye.avatar+' ':'')+pBye.name : '?') + ' pasa directo (sin rival)</span>';
         } else {
-          const nameA = players[m.a] ? players[m.a].name : '?';
-          const nameB = players[m.b] ? players[m.b].name : '?';
+          const pA = players[m.a], pB = players[m.b];
+          const nameA = pA ? (pA.avatar?pA.avatar+' ':'') + pA.name : '?';
+          const nameB = pB ? (pB.avatar?pB.avatar+' ':'') + pB.name : '?';
           card.innerHTML = `
             <div class="bracketPlayerRow${m.winner===m.a?' winner':''}"><span>${m.winner===m.a?'🏆 ':''}${nameA}</span><span class="bpScore">${m.scoreA}</span></div>
             <div class="bracketPlayerRow${m.winner===m.b?' winner':''}"><span>${m.winner===m.b?'🏆 ':''}${nameB}</span><span class="bpScore">${m.scoreB}</span></div>`;
@@ -2829,12 +2851,34 @@
   const exitMultiplayerBtn = document.getElementById('exitMultiplayerBtn');
   const mpWarning = document.getElementById('mpWarning');
 
-  function addPlayerRow(value){
+  const AVATAR_OPTIONS = ['😀','😎','🦁','🐱','🐶','🦊','🐻','🐼','🦄','🐸','🤖','👽','🎃','⭐','🔥','💎','🚀','🍕'];
+  const COLOR_OPTIONS = ['#ff5d6c','#ffd166','#6ac720','#b71daf','#eadd02','#ea581c','#4fd68c','#5f9df7','#eea602','#b31470'];
+
+  function addPlayerRow(value, avatarIdx, colorIdx){
+    const rowIndex = playerInputs.children.length;
+    if(avatarIdx === undefined || avatarIdx < 0) avatarIdx = rowIndex % AVATAR_OPTIONS.length;
+    if(colorIdx === undefined || colorIdx < 0) colorIdx = rowIndex % COLOR_OPTIONS.length;
+
     const row = document.createElement('div');
     row.className = 'playerRow';
+    row.dataset.avatarIdx = avatarIdx;
+    row.dataset.colorIdx = colorIdx;
     row.innerHTML = `
+      <button class="avatarPickBtn" type="button" title="Tocá para cambiar el avatar">${AVATAR_OPTIONS[avatarIdx]}</button>
       <input type="text" placeholder="Nombre del jugador" maxlength="16" value="${value ? value.replace(/"/g,'') : ''}">
+      <button class="colorPickBtn" type="button" title="Tocá para cambiar el color" style="background:${COLOR_OPTIONS[colorIdx]}"></button>
       <button class="removePlayerBtn" type="button">✕</button>`;
+
+    row.querySelector('.avatarPickBtn').addEventListener('click', ()=>{
+      const idx = (parseInt(row.dataset.avatarIdx,10) + 1) % AVATAR_OPTIONS.length;
+      row.dataset.avatarIdx = idx;
+      row.querySelector('.avatarPickBtn').textContent = AVATAR_OPTIONS[idx];
+    });
+    row.querySelector('.colorPickBtn').addEventListener('click', ()=>{
+      const idx = (parseInt(row.dataset.colorIdx,10) + 1) % COLOR_OPTIONS.length;
+      row.dataset.colorIdx = idx;
+      row.querySelector('.colorPickBtn').style.background = COLOR_OPTIONS[idx];
+    });
     row.querySelector('.removePlayerBtn').addEventListener('click', ()=>{
       if(playerInputs.children.length > 2) row.remove();
     });
@@ -2844,7 +2888,7 @@
   function renderPlayerSetup(){
     playerInputs.innerHTML = '';
     if(multiplayerEnabled && players.length){
-      players.forEach(p => addPlayerRow(p.name));
+      players.forEach(p => addPlayerRow(p.name, AVATAR_OPTIONS.indexOf(p.avatar), COLOR_OPTIONS.indexOf(p.color)));
     } else {
       addPlayerRow('Jugador 1');
       addPlayerRow('Jugador 2');
@@ -2865,16 +2909,20 @@
       multiplayerOverlay.style.display = 'none';
     });
     function setupPlayersFromForm(){
-      const names = Array.from(playerInputs.querySelectorAll('input[type="text"]'))
-        .map(inp => inp.value.trim())
-        .filter(n => n.length > 0);
-      if(names.length < 2){
+      const rows = Array.from(playerInputs.querySelectorAll('.playerRow'));
+      const entries = rows.map(row => ({
+        name: row.querySelector('input[type="text"]').value.trim(),
+        avatar: AVATAR_OPTIONS[parseInt(row.dataset.avatarIdx,10) || 0],
+        color: COLOR_OPTIONS[parseInt(row.dataset.colorIdx,10) || 0]
+      })).filter(e => e.name.length > 0);
+
+      if(entries.length < 2){
         mpWarning.style.display = 'block';
         return false;
       }
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = names.map(name => ({ name, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0 }));
+      players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0 }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
