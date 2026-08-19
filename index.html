@@ -1009,7 +1009,10 @@
     <h3 style="margin:0 0 2px; font-size:16px;">🌟 Desafío diario</h3>
     <p id="dailyDateLabel" style="font-size:11px; color:var(--text-dim); margin:0 0 4px;"></p>
     <p id="dailyStreakInfo" style="font-size:12px; color:var(--accent); font-weight:700; margin:0 0 10px;"></p>
-    <button id="viewCalendarBtn" type="button" style="background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:7px 12px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer; margin-bottom:12px;">📅 Ver calendario</button>
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <button id="viewCalendarBtn" type="button" style="flex:1; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:7px 10px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer;">📅 Calendario</button>
+      <button id="reminderBtn" type="button" style="flex:1; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:7px 10px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer;">🔔 Recordatorio</button>
+    </div>
     <div id="dailyBody"></div>
     <button id="closeDailyBtn" style="width:100%; margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
@@ -1030,6 +1033,28 @@
       <span>Más</span>
     </div>
     <button id="closeCalendarBtn" style="width:100%; margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="reminderOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.88); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:55; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:360px; width:100%;">
+    <h3 style="margin:0 0 6px; font-size:15px;">🔔 Recordatorio diario</h3>
+    <p style="font-size:11.5px; color:var(--text-dim); line-height:1.6; margin:0 0 14px;">
+      <b>Ojo:</b> esto funciona solo mientras la app o la pestaña sigan abiertas de fondo en tu dispositivo. No es una notificación push del sistema — si cerrás la app del todo, no va a sonar. Para eso haría falta un servidor propio.
+    </p>
+
+    <label style="display:flex; align-items:center; gap:10px; margin-bottom:14px; cursor:pointer;">
+      <input id="reminderToggle" type="checkbox" style="width:20px; height:20px; accent-color:var(--accent);">
+      <span style="font-size:13px; font-weight:700;">Activar recordatorio</span>
+    </label>
+
+    <label style="display:block; font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Hora del aviso</label>
+    <input id="reminderTimeInput" type="time" value="20:00" style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:14px; margin-bottom:12px;">
+
+    <p id="reminderStatus" style="font-size:11.5px; color:var(--text-dim); margin:0 0 14px;"></p>
+
+    <button id="saveReminderBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer; margin-bottom:8px;">Guardar</button>
+    <button id="closeReminderBtn" style="width:100%; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2336,6 +2361,125 @@
       calendarOverlay.style.display = 'none';
     });
   }
+
+  // -------- Recordatorio diario (local, no es push real — ver aviso en el modal) --------
+  let reminderEnabled = false;
+  let reminderTime = '20:00';
+  let reminderTimeoutId = null;
+
+  function getReminderDateForToday(timeStr){
+    const [h,m] = timeStr.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m || 0, 0, 0);
+    return d;
+  }
+
+  function showLocalReminderNotification(){
+    const title = '🌟 Desafío diario pendiente';
+    const body = '¡Todavía no respondiste la pregunta de hoy en Rueda de Preguntas!';
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification(title, { body, icon:'icon-192.png', badge:'icon-192.png', tag:'daily-reminder' });
+      }).catch(()=>{
+        try{ new Notification(title, { body, icon:'icon-192.png' }); }catch(e){}
+      });
+    } else {
+      try{ new Notification(title, { body, icon:'icon-192.png' }); }catch(e){}
+    }
+  }
+
+  async function maybeFireReminder(){
+    if(!reminderEnabled) return;
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const last = await storageGet('daily_last_played');
+    if(last === todayStr()) return; // ya jugó hoy, no molestar
+    const notifiedDate = await storageGet('reminder_notified_date');
+    if(notifiedDate === todayStr()) return; // ya se avisó hoy
+    showLocalReminderNotification();
+    await storageSet('reminder_notified_date', todayStr());
+  }
+
+  function scheduleNextReminder(){
+    if(reminderTimeoutId){ clearTimeout(reminderTimeoutId); reminderTimeoutId = null; }
+    if(!reminderEnabled) return;
+    const target = getReminderDateForToday(reminderTime);
+    let delay = target - new Date();
+    if(delay < 0) delay += 24*60*60*1000; // ya pasó hoy: programar para mañana a esa hora
+    reminderTimeoutId = setTimeout(async ()=>{
+      await maybeFireReminder();
+      scheduleNextReminder(); // se reprograma solo para el día siguiente
+    }, delay);
+  }
+
+  function reminderStatusText(){
+    if(!('Notification' in window)) return 'Tu navegador no soporta notificaciones.';
+    if(Notification.permission === 'denied') return 'Bloqueaste las notificaciones para este sitio — activalas desde la configuración del navegador.';
+    if(Notification.permission === 'default') return 'Hace falta tu permiso (se pide al guardar).';
+    return reminderEnabled ? 'Activo. Permiso concedido. ✅' : 'Permiso concedido, pero el recordatorio está apagado.';
+  }
+
+  const reminderBtn = document.getElementById('reminderBtn');
+  const reminderOverlay = document.getElementById('reminderOverlay');
+  const reminderToggle = document.getElementById('reminderToggle');
+  const reminderTimeInput = document.getElementById('reminderTimeInput');
+  const reminderStatus = document.getElementById('reminderStatus');
+  const saveReminderBtn = document.getElementById('saveReminderBtn');
+
+  if(reminderBtn){
+    reminderBtn.addEventListener('click', ()=>{
+      reminderToggle.checked = reminderEnabled;
+      reminderTimeInput.value = reminderTime;
+      reminderStatus.textContent = reminderStatusText();
+      reminderOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeReminderBtn').addEventListener('click', ()=>{
+      reminderOverlay.style.display = 'none';
+    });
+    saveReminderBtn.addEventListener('click', async ()=>{
+      reminderTime = reminderTimeInput.value || '20:00';
+      await storageSet('reminder_time', reminderTime);
+
+      if(reminderToggle.checked){
+        if('Notification' in window && Notification.permission === 'default'){
+          try{ await Notification.requestPermission(); }catch(e){}
+        }
+        if('Notification' in window && Notification.permission === 'granted'){
+          reminderEnabled = true;
+          await storageSet('reminder_enabled', 'on');
+          scheduleNextReminder();
+        } else {
+          reminderEnabled = false;
+          await storageSet('reminder_enabled', 'off');
+        }
+      } else {
+        reminderEnabled = false;
+        await storageSet('reminder_enabled', 'off');
+        if(reminderTimeoutId){ clearTimeout(reminderTimeoutId); reminderTimeoutId = null; }
+      }
+
+      reminderStatus.textContent = reminderStatusText();
+    });
+  }
+
+  async function loadReminderSettings(){
+    const savedEnabled = await storageGet('reminder_enabled');
+    const savedTime = await storageGet('reminder_time');
+    if(savedTime) reminderTime = savedTime;
+    if(savedEnabled === 'on' && 'Notification' in window && Notification.permission === 'granted'){
+      reminderEnabled = true;
+      scheduleNextReminder();
+    }
+  }
+  loadReminderSettings();
+
+  // si la app vuelve a primer plano después de la hora del aviso, revisa igual (por si estaba cerrada)
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && reminderEnabled){
+      const now = new Date();
+      const target = getReminderDateForToday(reminderTime);
+      if(now >= target) maybeFireReminder();
+    }
+  });
 
   // -------- Compartir puntaje --------
   const shareBtn = document.getElementById('shareBtn');
