@@ -157,6 +157,14 @@
     padding:7px 18px; border-radius:20px;
     box-shadow:0 4px 14px rgba(0,0,0,0.35);
   }
+  #coinsBadge{
+    font-family: var(--font-display);
+    font-size:12px; font-weight:800; color:#ffd166;
+    margin:6px 0 0;
+    background:rgba(255,209,102,0.1);
+    border:1.5px solid rgba(255,209,102,0.4);
+    padding:4px 12px; border-radius:14px;
+  }
   #streakBadge{
     font-family: var(--font-display);
     font-size:13px; font-weight:700; color:#ff5d6c;
@@ -808,6 +816,39 @@
     transition:width 0.4s ease;
   }
 
+  .shopCard{
+    display:flex; align-items:center; gap:12px;
+    background:#1a1428; border:1px solid var(--panel-line); border-radius:12px;
+    padding:11px 13px; margin-bottom:9px;
+  }
+  .shopCard .shopPreview{
+    width:44px; height:44px; flex:none; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    background:#12121a;
+  }
+  .shopCard .shopInfo{ flex:1; min-width:0; }
+  .shopCard .shopName{ font-size:13px; font-weight:800; }
+  .shopCard .shopCost{ font-size:11px; color:var(--text-dim); }
+  .shopCard button{
+    flex:none; padding:8px 12px; border-radius:8px; font-size:11.5px; font-weight:800;
+    cursor:pointer; font-family:inherit; border:1.5px solid var(--panel-line);
+    background:transparent; color:var(--text-dim);
+  }
+  .shopCard button.equipped{ border-color:var(--good); color:var(--good); }
+  .shopCard button.buyable{ border-color:var(--accent); color:var(--accent); }
+  .shopCard button:disabled{ opacity:0.4; cursor:default; }
+
+  .avatarFrameWrap{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:50%;
+    margin-right:2px; flex:none;
+  }
+  .avatarFrameInner{
+    display:flex; align-items:center; justify-content:center;
+    width:100%; height:100%; border-radius:50%;
+    background:#12121a; font-size:12px;
+  }
+
   .lbRow{
     display:flex; align-items:center; gap:10px;
     padding:9px 6px; border-bottom:1px solid var(--panel-line);
@@ -1015,6 +1056,7 @@
   </header>
 
   <div id="score">🏆 <span id="turnLabel" style="display:none;"></span><span id="scoreVal">0</span> puntos</div>
+  <div id="coinsBadge">🪙 <span id="coinsVal">0</span></div>
   <div id="streakBadge" style="display:none;">🔥 Racha x<span id="streakVal">0</span></div>
   <div id="survivalBadge" style="display:none;">💀 Supervivencia: <span id="survivalVal">0</span> · Récord: <span id="survivalBestVal">0</span></div>
   <div id="marathonBadge" style="display:none;">🏃 Maratón: <span id="marathonTimeVal">0:00</span> · <span id="marathonCountVal">0</span>/20</div>
@@ -1061,6 +1103,7 @@
     <button id="shareBtn">📤 Compartir</button>
     <button id="leaderboardBtn">🏆 Posiciones</button>
     <button id="a11yBtn">🔤 Tamaño de texto</button>
+    <button id="shopBtn">🪙 Tienda</button>
     <button id="reviewModeBtn">📖 Modo repaso</button>
     <button id="myQuestionsBtn">✏️ Mis preguntas</button>
     <button id="survivalModeBtn">💀 Supervivencia</button>
@@ -1312,6 +1355,23 @@
     </div>
 
     <button id="closeThemeChallengeBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="shopOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:400px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 4px; font-size:16px;">🪙 Tienda</h3>
+    <p style="font-size:12px; color:var(--accent); font-weight:700; margin:0 0 12px;">Tenés <span id="shopCoinsVal">0</span> monedas</p>
+
+    <div style="display:flex; gap:6px; margin-bottom:12px;">
+      <button id="shopTabFrames" class="mqTabBtn active">Marcos</button>
+      <button id="shopTabPalettes" class="mqTabBtn">Colores</button>
+      <button id="shopTabConfetti" class="mqTabBtn">Confeti</button>
+    </div>
+
+    <div id="shopList" style="overflow-y:auto; flex:1;"></div>
+    <p style="font-size:10px; color:var(--text-dim); margin:10px 0 0;">Ganás 1-3 monedas por cada respuesta correcta.</p>
+    <button id="closeShopBtn" style="margin-top:12px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2301,6 +2361,93 @@
     let n = 0;
     Object.values(missedQuestions).forEach(topicMap => { n += Object.keys(topicMap).length; });
     return n;
+  }
+
+  // -------- Monedas y tienda --------
+  // Moneda única del dispositivo (no per-jugador): se gana jugando, se gasta en cosméticos.
+  let coins = 0;
+  async function loadCoins(){
+    const raw = await storageGet('coins');
+    if(raw) coins = parseInt(raw, 10) || 0;
+    const badge = document.getElementById('coinsVal');
+    if(badge) badge.textContent = coins;
+  }
+  loadCoins();
+  async function saveCoins(){ await storageSet('coins', String(coins)); }
+
+  function earnCoins(n){
+    coins += n;
+    saveCoins();
+    const badge = document.getElementById('coinsVal');
+    if(badge) badge.textContent = coins;
+  }
+
+  const SHOP_FRAMES = [
+    { id:'frame_none', name:'Sin marco', cost:0, css:'border:2px solid var(--panel-line);' },
+    { id:'frame_gold', name:'Marco dorado', cost:50, css:'border:2.5px solid #ffd166; box-shadow:0 0 6px rgba(255,209,102,0.8);' },
+    { id:'frame_fire', name:'Marco de fuego', cost:80, css:'border:2.5px solid #ff5d6c; box-shadow:0 0 8px rgba(255,93,108,0.9);' },
+    { id:'frame_ice', name:'Marco de hielo', cost:80, css:'border:2.5px solid #5f9df7; box-shadow:0 0 8px rgba(95,157,247,0.9);' },
+    { id:'frame_rainbow', name:'Marco arcoíris', cost:150, css:'border:2.5px solid transparent; background:conic-gradient(#ff5d6c,#ffd166,#6ac720,#5f9df7,#b71daf,#ff5d6c) border-box; -webkit-mask:linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude;' },
+  ];
+
+  const SHOP_PALETTES = [
+    { id:'palette_default', name:'Clásica (carnaval)', cost:0, preview:'🎪', colors:{
+      historia:'#b30317', ciencia:'#d20200', geografia:'#ea581c', cine:'#e9ab34', deportes:'#b71daf',
+      arte:'#e5013c', musica:'#b31470', literatura:'#eea602', tecnologia:'#2bab34', gastronomia:'#6ac720', actualidad:'#eadd02'
+    }},
+    { id:'palette_pastel', name:'Pastel', cost:60, preview:'🌸', colors:{
+      historia:'#f2a6a6', ciencia:'#f5b3b3', geografia:'#f7c9a1', cine:'#f9dca3', deportes:'#dba8e8',
+      arte:'#f4a3c1', musica:'#d9a6d9', literatura:'#f6d9a0', tecnologia:'#a8e0b0', gastronomia:'#c3e8a8', actualidad:'#f2eda0'
+    }},
+    { id:'palette_neon', name:'Neón', cost:100, preview:'⚡', colors:{
+      historia:'#ff003c', ciencia:'#ff2e00', geografia:'#ff8800', cine:'#ffe600', deportes:'#c800ff',
+      arte:'#ff0090', musica:'#e000ff', literatura:'#fff200', tecnologia:'#00ff66', gastronomia:'#aaff00', actualidad:'#faff00'
+    }},
+    { id:'palette_ocean', name:'Océano', cost:100, preview:'🌊', colors:{
+      historia:'#003f5c', ciencia:'#2f4b7c', geografia:'#665191', cine:'#a05195', deportes:'#d45087',
+      arte:'#f95d6a', musica:'#ff7c43', literatura:'#ffa600', tecnologia:'#00876c', gastronomia:'#4ecdc4', actualidad:'#1a9cb0'
+    }},
+  ];
+
+  const SHOP_CONFETTI = [
+    { id:'confetti_default', name:'Clásico (arcoíris)', cost:0, preview:'🎊', colors:['#ff5d6c','#ffd166','#6ac720','#b71daf','#eadd02','#ea581c','#4fd68c'] },
+    { id:'confetti_gold', name:'Dorado', cost:40, preview:'✨', colors:['#ffd166','#ffb454','#fff2c0','#e6a800','#c9a227'] },
+    { id:'confetti_mono', name:'Blanco y negro', cost:40, preview:'⚫', colors:['#ffffff','#cccccc','#888888','#444444'] },
+    { id:'confetti_pastel', name:'Pastel', cost:40, preview:'🍬', colors:['#f2a6a6','#f9dca3','#a8e0b0','#dba8e8','#a6d9f5'] },
+  ];
+
+  let ownedItems = { frames:['frame_none'], palettes:['palette_default'], confetti:['confetti_default'] };
+  let equipped = { frame:'frame_none', palette:'palette_default', confetti:'confetti_default' };
+  let confettiPalette = SHOP_CONFETTI[0].colors;
+
+  async function loadShopData(){
+    const rawOwned = await storageGet('shop_owned');
+    if(rawOwned){ try{ Object.assign(ownedItems, JSON.parse(rawOwned)); }catch(e){} }
+    const rawEquipped = await storageGet('shop_equipped');
+    if(rawEquipped){ try{ Object.assign(equipped, JSON.parse(rawEquipped)); }catch(e){} }
+    applyEquippedPalette();
+    applyEquippedConfetti();
+  }
+  async function saveShopData(){
+    await storageSet('shop_owned', JSON.stringify(ownedItems));
+    await storageSet('shop_equipped', JSON.stringify(equipped));
+  }
+  loadShopData();
+
+  function applyEquippedPalette(){
+    const palette = SHOP_PALETTES.find(p=>p.id===equipped.palette) || SHOP_PALETTES[0];
+    Object.keys(palette.colors).forEach(topicKey=>{
+      document.documentElement.style.setProperty('--c-'+topicKey, palette.colors[topicKey]);
+    });
+    if(typeof renderWheel === 'function') renderWheel();
+  }
+  function applyEquippedConfetti(){
+    const skin = SHOP_CONFETTI.find(c=>c.id===equipped.confetti) || SHOP_CONFETTI[0];
+    confettiPalette = skin.colors;
+  }
+  function currentFrameCss(){
+    const frame = SHOP_FRAMES.find(f=>f.id===equipped.frame) || SHOP_FRAMES[0];
+    return frame.css;
   }
 
   // -------- Modo supervivencia: una vida, termina en el primer error --------
@@ -3405,6 +3552,97 @@
     });
   }
 
+  // -------- Tienda --------
+  const shopBtn = document.getElementById('shopBtn');
+  const shopOverlay = document.getElementById('shopOverlay');
+  const shopList = document.getElementById('shopList');
+  const shopTabs = {
+    frames: document.getElementById('shopTabFrames'),
+    palettes: document.getElementById('shopTabPalettes'),
+    confetti: document.getElementById('shopTabConfetti'),
+  };
+  let shopCurrentTab = 'frames';
+
+  function shopItemsFor(tab){
+    if(tab === 'frames') return SHOP_FRAMES;
+    if(tab === 'palettes') return SHOP_PALETTES;
+    return SHOP_CONFETTI;
+  }
+  function shopOwnedKeyFor(tab){ return tab === 'frames' ? 'frames' : (tab === 'palettes' ? 'palettes' : 'confetti'); }
+  function shopEquippedKeyFor(tab){ return tab === 'frames' ? 'frame' : (tab === 'palettes' ? 'palette' : 'confetti'); }
+
+  function renderShop(){
+    document.getElementById('shopCoinsVal').textContent = coins;
+    Object.keys(shopTabs).forEach(t => shopTabs[t].classList.toggle('active', t === shopCurrentTab));
+
+    const items = shopItemsFor(shopCurrentTab);
+    const ownedKey = shopOwnedKeyFor(shopCurrentTab);
+    const equippedKey = shopEquippedKeyFor(shopCurrentTab);
+
+    shopList.innerHTML = '';
+    items.forEach(item=>{
+      const owned = ownedItems[ownedKey].includes(item.id);
+      const isEquipped = equipped[equippedKey] === item.id;
+      const card = document.createElement('div');
+      card.className = 'shopCard';
+
+      let previewHtml;
+      if(shopCurrentTab === 'frames'){
+        previewHtml = `<span class="avatarFrameWrap" style="width:44px;height:44px;${item.css}"><span class="avatarFrameInner" style="font-size:20px;">🙂</span></span>`;
+      } else {
+        previewHtml = `<div class="shopPreview">${item.preview}</div>`;
+      }
+
+      let btnLabel, btnClass, btnDisabled = false;
+      if(isEquipped){ btnLabel = 'Equipado ✓'; btnClass = 'equipped'; btnDisabled = true; }
+      else if(owned){ btnLabel = 'Equipar'; btnClass = 'buyable'; }
+      else if(coins >= item.cost){ btnLabel = 'Comprar'; btnClass = 'buyable'; }
+      else { btnLabel = 'Te faltan ' + (item.cost - coins); btnClass = ''; btnDisabled = true; }
+
+      card.innerHTML = `
+        <span style="display:contents;"></span>
+        <div class="shopInfo">
+          <div class="shopName">${item.name}</div>
+          <div class="shopCost">${item.cost === 0 ? 'Gratis' : '🪙 ' + item.cost}</div>
+        </div>
+        <button class="${btnClass}" ${btnDisabled ? 'disabled' : ''}>${btnLabel}</button>`;
+      card.insertBefore(document.createRange().createContextualFragment(previewHtml), card.firstChild);
+
+      card.querySelector('button').addEventListener('click', async ()=>{
+        if(!owned){
+          if(coins < item.cost) return;
+          coins -= item.cost;
+          saveCoins();
+          ownedItems[ownedKey].push(item.id);
+        }
+        equipped[equippedKey] = item.id;
+        await saveShopData();
+        if(shopCurrentTab === 'palettes') applyEquippedPalette();
+        if(shopCurrentTab === 'confetti') applyEquippedConfetti();
+        if(shopCurrentTab === 'frames') renderTurnUI();
+        renderShop();
+      });
+
+      shopList.appendChild(card);
+    });
+  }
+
+  if(shopBtn){
+    shopBtn.addEventListener('click', ()=>{
+      renderShop();
+      shopOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeShopBtn').addEventListener('click', ()=>{
+      shopOverlay.style.display = 'none';
+    });
+    Object.keys(shopTabs).forEach(t=>{
+      shopTabs[t].addEventListener('click', ()=>{
+        shopCurrentTab = t;
+        renderShop();
+      });
+    });
+  }
+
   (async function loadA11yScale(){
     const saved = await storageGet('a11y_scale');
     if(saved && A11Y_LEVELS.some(l => l.key === saved)){
@@ -3483,7 +3721,10 @@
         chip.style.color = p.color;
       }
       const teamMark = (teamModeEnabled && p.team) ? (p.team === 1 ? '🔵' : '🔴') : '';
-      chip.textContent = teamMark + (p.avatar ? p.avatar + ' ' : '') + p.name + ': ' + p.score;
+      const avatarHtml = p.avatar
+        ? `<span class="avatarFrameWrap" style="${currentFrameCss()}"><span class="avatarFrameInner">${p.avatar}</span></span>`
+        : '';
+      chip.innerHTML = teamMark + avatarHtml + ' ' + p.name + ': ' + p.score;
       playerChips.appendChild(chip);
     });
 
@@ -5447,9 +5688,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       state[currentTopicKey] = Math.min(MAX_LEVEL, lvl+1);
       stats.bestStreak = Math.max(stats.bestStreak, streak);
 
+      const coinsWon = Math.max(1, Math.ceil(lvl / 5)); // 1 a 3 monedas según dificultad
+      earnCoins(coinsWon);
+
       let msg = doubleOrNothingActive
         ? '🎲 ¡Correcto, doble o nada pagó! +' + doubledPts + ' puntos'
         : '¡Correcto! +' + doubledPts + ' puntos';
+      msg += ' 🪙+' + coinsWon;
       if(streakBonus > 0) msg += ' + 🔥 ' + streakBonus + ' de racha (x' + streak + ')';
 
       if(coopModeEnabled && multiplayerEnabled){
@@ -5639,7 +5884,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   function launchConfetti(){
     if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const colors = ['#ff5d6c','#ffd166','#6ac720','#b71daf','#eadd02','#ea581c','#4fd68c'];
+    const colors = (typeof confettiPalette !== 'undefined' && confettiPalette.length) ? confettiPalette : ['#ff5d6c','#ffd166','#6ac720','#b71daf','#eadd02','#ea581c','#4fd68c'];
     const originX = window.innerWidth/2;
     const originY = window.innerHeight*0.4;
     for(let i=0;i<26;i++){
@@ -5731,6 +5976,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     { title:'🎨 Personalizar', items:[
       { id:'myQuestionsBtn', icon:'✏️', label:'Mis preguntas' },
       { id:'a11yBtn', icon:'🔤', label:'Tamaño de texto' },
+      { id:'shopBtn', icon:'🪙', label:'Tienda' },
       { id:null, icon:'❓', label:'Cómo se juega', action:'welcome' },
     ]},
   ];
