@@ -776,6 +776,38 @@
   }
   .dailyDone .bigIcon{ font-size:40px; display:block; margin-bottom:8px; }
 
+  .themeSection{
+    background:#1a1428; border:1px solid var(--panel-line); border-radius:12px;
+    padding:14px;
+  }
+  .themeSectionTitle{
+    font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--text);
+    margin-bottom:10px;
+  }
+  .weekDotsRow{
+    display:flex; gap:6px; justify-content:space-between;
+  }
+  .weekDot{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:9px; color:var(--text-dim);
+  }
+  .weekDot .dotCircle{
+    width:22px; height:22px; border-radius:50%;
+    background:#2a2a3c; border:1.5px solid var(--panel-line);
+    display:flex; align-items:center; justify-content:center; font-size:11px;
+  }
+  .weekDot.done .dotCircle{ background:var(--good); border-color:var(--good); }
+  .weekDot.wrong .dotCircle{ background:var(--bad); opacity:0.75; border-color:var(--bad); }
+  .weekDot.today .dotCircle{ border-color:var(--accent); border-width:2px; }
+  .themeBarTrack{
+    width:100%; height:10px; border-radius:6px; background:#2a2a3c; overflow:hidden;
+  }
+  .themeBarFill{
+    height:100%; border-radius:6px;
+    background:linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition:width 0.4s ease;
+  }
+
   .lbRow{
     display:flex; align-items:center; gap:10px;
     padding:9px 6px; border-bottom:1px solid var(--panel-line);
@@ -1025,6 +1057,7 @@
     <button id="statsBtn">📊 Estadísticas</button>
     <button id="achievementsBtn">🏅 Logros</button>
     <button id="dailyBtn">📅 Desafío diario</button>
+    <button id="themeChallengeBtn">🗓️ Retos temáticos</button>
     <button id="shareBtn">📤 Compartir</button>
     <button id="leaderboardBtn">🏆 Posiciones</button>
     <button id="a11yBtn">🔤 Tamaño de texto</button>
@@ -1103,7 +1136,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia y récord de maratón</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón y retos temáticos</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -1253,6 +1286,32 @@
 
     <button id="saveReminderBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer; margin-bottom:8px;">Guardar</button>
     <button id="closeReminderBtn" style="width:100%; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="themeChallengeOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:390px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 4px; font-size:16px;">🗓️ Retos temáticos</h3>
+    <p style="font-size:11px; color:var(--text-dim); margin:0 0 14px;">Además del desafío diario — cada semana y cada mes rota un tema distinto.</p>
+
+    <div style="overflow-y:auto; flex:1;">
+      <div class="themeSection">
+        <div class="themeSectionTitle" id="weeklyThemeTitle">📅 Semana de —</div>
+        <div id="weeklyDots" class="weekDotsRow"></div>
+        <p id="weeklyStatusText" style="font-size:11.5px; color:var(--text-dim); margin:8px 0 10px;"></p>
+        <button id="weeklyAnswerBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:10px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Responder la pregunta de hoy</button>
+        <div id="weeklyBody" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="themeSection" style="margin-top:18px;">
+        <div class="themeSectionTitle" id="monthlyThemeTitle">🗓️ Mes de —</div>
+        <div id="monthlyBarTrack" class="themeBarTrack"><div id="monthlyBarFill" class="themeBarFill"></div></div>
+        <p id="monthlyStatusText" style="font-size:11.5px; color:var(--text-dim); margin:8px 0 0;"></p>
+        <p style="font-size:10.5px; color:var(--text-dim); margin:4px 0 0;">Se completa solo, jugando ese tema en la rueda normal durante el mes.</p>
+      </div>
+    </div>
+
+    <button id="closeThemeChallengeBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2187,6 +2246,8 @@
     { id:'scholar100', icon:'📚', name:'Erudito', desc:'Respondiste 100 preguntas en total.' },
     { id:'champion', icon:'👑', name:'Campeón de la Rueda', desc:'Conseguí el título de Maestro en los ' + TOPICS.length + ' temas.' },
     { id:'dailyweek', icon:'🌅', name:'Rutina diaria', desc:'Respondé el desafío diario 7 días seguidos.' },
+    { id:'weeklytheme', icon:'📅', name:'Semana temática', desc:'Completá los 7 días del reto semanal temático.' },
+    { id:'monthlytheme', icon:'🗓️', name:'Mes temático', desc:'Alcanzá la meta de puntos del reto mensual temático.' },
   ];
   const ACHIEVEMENTS_TOPIC = TOPICS.map(t => ({
     id: 'master_' + t.key, icon: t.icon, name: 'Maestro de ' + t.name,
@@ -2398,6 +2459,67 @@
     await storageSet('daily_history', JSON.stringify(dailyHistory));
   }
 
+  // -------- Retos temáticos: semanal y mensual (además del desafío diario) --------
+  function pad2b(n){ return String(n).padStart(2,'0'); }
+
+  function getISOWeekId(d){
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7; // lunes=0
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+    const weekNum = 1 + Math.round(((date - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay()+6)%7)) / 7);
+    return date.getUTCFullYear() + '-S' + pad2b(weekNum);
+  }
+  function getMonthId(d){ return d.getFullYear() + '-' + pad2b(d.getMonth()+1); }
+  function isoWeekdayIndex(d){ return (d.getDay() + 6) % 7; } // lunes=0 ... domingo=6
+
+  function themeTopicForId(idOrSeed){
+    const idx = hashStr(idOrSeed) % TOPICS.length;
+    return TOPICS[idx];
+  }
+
+  // ---- Semanal ----
+  let weeklyProgress = { weekId:null, topicKey:null, completedDates:[] };
+  async function loadWeeklyProgress(){
+    const raw = await storageGet('weekly_progress');
+    if(raw){ try{ Object.assign(weeklyProgress, JSON.parse(raw)); }catch(e){} }
+    const curWeekId = getISOWeekId(new Date());
+    if(weeklyProgress.weekId !== curWeekId){
+      weeklyProgress = { weekId: curWeekId, topicKey: themeTopicForId(curWeekId).key, completedDates: [] };
+      await saveWeeklyProgress();
+    }
+  }
+  async function saveWeeklyProgress(){ await storageSet('weekly_progress', JSON.stringify(weeklyProgress)); }
+  loadWeeklyProgress();
+
+  function getWeeklyQuestion(){
+    const topic = TOPICS.find(t=>t.key===weeklyProgress.topicKey) || TOPICS[0];
+    const dayIdx = isoWeekdayIndex(new Date()); // 0-6
+    const level = Math.min(MAX_LEVEL, Math.max(1, Math.ceil((dayIdx+1) * MAX_LEVEL / 7)));
+    const pool = [];
+    (QUESTIONS[topic.key][level] || []).forEach(q => pool.push(q));
+    (customQuestions[topic.key] && customQuestions[topic.key][level] || []).forEach(q => pool.push(q));
+    if(!pool.length) return null;
+    const seed = hashStr(weeklyProgress.weekId + '-' + todayStr() + '-' + topic.key);
+    const rng = mulberry32(seed);
+    return { topic, level, q: pool[Math.floor(rng()*pool.length)] };
+  }
+
+  // ---- Mensual ----
+  const MONTHLY_GOAL = 300;
+  let monthlyProgress = { monthId:null, topicKey:null, score:0 };
+  async function loadMonthlyProgress(){
+    const raw = await storageGet('monthly_progress');
+    if(raw){ try{ Object.assign(monthlyProgress, JSON.parse(raw)); }catch(e){} }
+    const curMonthId = getMonthId(new Date());
+    if(monthlyProgress.monthId !== curMonthId){
+      monthlyProgress = { monthId: curMonthId, topicKey: themeTopicForId('mes-'+curMonthId).key, score: 0 };
+      await saveMonthlyProgress();
+    }
+  }
+  async function saveMonthlyProgress(){ await storageSet('monthly_progress', JSON.stringify(monthlyProgress)); }
+  loadMonthlyProgress();
+
   function hashStr(s){
     let h = 0;
     for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
@@ -2576,6 +2698,137 @@
     });
     closeDailyBtn.addEventListener('click', ()=>{
       dailyOverlay.style.display = 'none';
+    });
+  }
+
+  // -------- Modal de retos temáticos --------
+  const WEEKDAY_LABELS = ['L','M','X','J','V','S','D'];
+
+  async function renderThemeChallenge(){
+    await loadWeeklyProgress(); // por si cambió de semana desde que se abrió la app
+    await loadMonthlyProgress();
+
+    const weekTopic = TOPICS.find(t=>t.key===weeklyProgress.topicKey) || TOPICS[0];
+    document.getElementById('weeklyThemeTitle').textContent = '📅 Semana de ' + weekTopic.icon + ' ' + weekTopic.name;
+
+    const todayIdx = isoWeekdayIndex(new Date());
+    const dotsEl = document.getElementById('weeklyDots');
+    dotsEl.innerHTML = '';
+    // reconstruir las fechas lunes-domingo de esta semana ISO para saber qué día es cada punto
+    const monday = new Date();
+    monday.setDate(monday.getDate() - isoWeekdayIndex(monday));
+    for(let i=0;i<7;i++){
+      const d = new Date(monday);
+      d.setDate(monday.getDate()+i);
+      const key = dateStr(d);
+      const entry = weeklyProgress.completedDates.find(e => e.date === key);
+      const dot = document.createElement('div');
+      dot.className = 'weekDot' + (entry ? (entry.correct ? ' done' : ' wrong') : '') + (i===todayIdx ? ' today' : '');
+      dot.innerHTML = `<span class="dotCircle">${entry ? (entry.correct?'✓':'✕') : ''}</span><span>${WEEKDAY_LABELS[i]}</span>`;
+      dotsEl.appendChild(dot);
+    }
+
+    const doneCount = weeklyProgress.completedDates.length;
+    const todayKey = todayStr();
+    const alreadyToday = weeklyProgress.completedDates.some(e => e.date === todayKey);
+    document.getElementById('weeklyStatusText').textContent = doneCount + '/7 días de esta semana completados.';
+
+    const weeklyAnswerBtn = document.getElementById('weeklyAnswerBtn');
+    const weeklyBody = document.getElementById('weeklyBody');
+    weeklyBody.innerHTML = '';
+    if(alreadyToday){
+      weeklyAnswerBtn.style.display = 'none';
+      weeklyBody.innerHTML = '<p style="font-size:12px; color:var(--good); text-align:center; margin:0;">✅ Ya respondiste la pregunta temática de hoy.</p>';
+    } else {
+      weeklyAnswerBtn.style.display = 'block';
+      weeklyAnswerBtn.onclick = () => renderWeeklyQuestion(weekTopic);
+    }
+
+    const monthTopic = TOPICS.find(t=>t.key===monthlyProgress.topicKey) || TOPICS[0];
+    document.getElementById('monthlyThemeTitle').textContent = '🗓️ Mes de ' + monthTopic.icon + ' ' + monthTopic.name;
+    document.getElementById('monthlyBarFill').style.width = Math.min(100, (monthlyProgress.score/MONTHLY_GOAL)*100) + '%';
+    document.getElementById('monthlyStatusText').textContent = monthlyProgress.score + ' / ' + MONTHLY_GOAL + ' puntos' +
+      (monthlyProgress.score >= MONTHLY_GOAL ? ' · 🎉 ¡Meta cumplida!' : '');
+  }
+
+  function renderWeeklyQuestion(weekTopic){
+    const weeklyAnswerBtn = document.getElementById('weeklyAnswerBtn');
+    const weeklyBody = document.getElementById('weeklyBody');
+    const daily = getWeeklyQuestion();
+    if(!daily){
+      weeklyBody.innerHTML = '<p style="font-size:12px; color:var(--text-dim);">No hay preguntas disponibles todavía para este tema.</p>';
+      return;
+    }
+    weeklyAnswerBtn.style.display = 'none';
+    weeklyBody.innerHTML = '';
+
+    if(daily.q.image){
+      const img = document.createElement('div');
+      img.style.cssText = 'font-size:44px; text-align:center; background:#12121a; border:1px solid var(--panel-line); border-radius:10px; padding:10px; margin-bottom:10px;';
+      img.textContent = daily.q.image;
+      weeklyBody.appendChild(img);
+    }
+    const qP = document.createElement('p');
+    qP.style.cssText = 'font-size:14px; font-weight:700; margin:0 0 10px;';
+    qP.textContent = daily.q.q;
+    weeklyBody.appendChild(qP);
+
+    const order = daily.q.options.map((opt,idx)=>({opt,idx}));
+    for(let i=order.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [order[i],order[j]] = [order[j],order[i]];
+    }
+    const feedbackP = document.createElement('div');
+    feedbackP.style.cssText = 'margin-top:8px; font-size:12.5px; font-weight:700; text-align:center;';
+
+    order.forEach(({opt, idx})=>{
+      const btn = document.createElement('button');
+      btn.className = 'dOption';
+      btn.textContent = opt;
+      btn.addEventListener('click', async ()=>{
+        const allBtns = weeklyBody.querySelectorAll('.dOption');
+        allBtns.forEach(b=>b.disabled = true);
+        const isCorrect = idx === daily.q.correct;
+        allBtns.forEach(b=>{
+          if(b.textContent === daily.q.options[daily.q.correct]) b.classList.add('correct');
+        });
+        if(!isCorrect) btn.classList.add('wrong');
+
+        weeklyProgress.completedDates.push({ date: todayStr(), correct: isCorrect });
+        await saveWeeklyProgress();
+
+        if(isCorrect){
+          const pts = 30 + (daily.level * 3);
+          score += pts;
+          feedbackP.textContent = '¡Correcto! +' + pts + ' puntos';
+          feedbackP.style.color = 'var(--good)';
+          launchConfetti();
+        } else {
+          feedbackP.textContent = 'No era esa. ¡Probá mañana!';
+          feedbackP.style.color = 'var(--bad)';
+        }
+        weeklyBody.appendChild(feedbackP);
+        renderScore();
+
+        if(weeklyProgress.completedDates.length >= 7){
+          unlockAchievement('weeklytheme');
+        }
+
+        setTimeout(renderThemeChallenge, 1400);
+      });
+      weeklyBody.appendChild(btn);
+    });
+  }
+
+  const themeChallengeBtn = document.getElementById('themeChallengeBtn');
+  const themeChallengeOverlay = document.getElementById('themeChallengeOverlay');
+  if(themeChallengeBtn){
+    themeChallengeBtn.addEventListener('click', ()=>{
+      renderThemeChallenge();
+      themeChallengeOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeThemeChallengeBtn').addEventListener('click', ()=>{
+      themeChallengeOverlay.style.display = 'none';
     });
   }
 
@@ -3959,6 +4212,12 @@
       await storageDelete('missed_solo');
       await storageDelete('survival_best');
       await storageDelete('marathon_best');
+      await storageDelete('weekly_progress');
+      await storageDelete('monthly_progress');
+      weeklyProgress = { weekId:null, topicKey:null, completedDates:[] };
+      monthlyProgress = { monthId:null, topicKey:null, score:0 };
+      await loadWeeklyProgress();
+      await loadMonthlyProgress();
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
@@ -5217,6 +5476,16 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         }
       }
 
+      // reto mensual temático: se completa solo, jugando el tema del mes en la rueda normal
+      if(monthlyProgress.topicKey === currentTopicKey && monthlyProgress.score < MONTHLY_GOAL){
+        monthlyProgress.score = Math.min(MONTHLY_GOAL, monthlyProgress.score + pts);
+        saveMonthlyProgress();
+        if(monthlyProgress.score >= MONTHLY_GOAL){
+          unlockAchievement('monthlytheme');
+          msg += ' · 🗓️ ¡Meta del mes temático cumplida!';
+        }
+      }
+
       feedback.textContent = msg;
       feedback.className = 'good';
       launchConfetti();
@@ -5453,6 +5722,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       { id:'statsBtn', icon:'📊', label:'Estadísticas' },
       { id:'achievementsBtn', icon:'🏅', label:'Logros' },
       { id:'dailyBtn', icon:'📅', label:'Desafío diario', special:'daily' },
+      { id:'themeChallengeBtn', icon:'🗓️', label:'Retos temáticos' },
     ]},
     { title:'🌐 Compartir', items:[
       { id:'shareBtn', icon:'📤', label:'Compartir puntaje' },
