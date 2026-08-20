@@ -593,6 +593,13 @@
     border:2px solid rgba(255,255,255,0.5);
     border-radius:50%; cursor:pointer; padding:0;
   }
+  .playerRow .teamPickBtn{
+    flex:none; width:28px; height:28px;
+    border:2px solid rgba(255,255,255,0.6);
+    border-radius:50%; cursor:pointer; padding:0;
+    color:#fff; font-weight:800; font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
 
   #turnLabel{
     font-weight:800; margin-right:6px;
@@ -934,6 +941,26 @@
   }
   .coopContribRow:last-child{ border-bottom:none; }
   .coopContribRow .ccScore{ font-weight:800; color:var(--good); }
+
+  #teamBanner{
+    width:100%; max-width:340px;
+    background:var(--panel); border:1.5px solid var(--panel-line);
+    border-radius:14px; padding:10px 14px; margin:6px 0 0;
+  }
+  .teamRow{ margin-bottom:8px; }
+  .teamRow:last-child{ margin-bottom:0; }
+  .teamRow span{
+    display:block; font-family:var(--font-display); font-weight:700; font-size:12px;
+    margin-bottom:3px;
+  }
+  #teamLabelBlue{ color:#5f9df7; }
+  #teamLabelRed{ color:#ff5d6c; }
+  .teamBarTrack{
+    width:100%; height:9px; border-radius:5px; background:#2a2a3c; overflow:hidden;
+  }
+  .teamBarFill{ height:100%; border-radius:5px; transition:width 0.4s ease; }
+  #teamBarFillBlue{ background:#5f9df7; }
+  #teamBarFillRed{ background:#ff5d6c; }
 </style>
 </head>
 <body>
@@ -964,6 +991,16 @@
   <div id="coopBanner" style="display:none;">
     <div id="coopBannerText"></div>
     <div id="coopBarTrack"><div id="coopBarFill"></div></div>
+  </div>
+  <div id="teamBanner" style="display:none;">
+    <div class="teamRow">
+      <span id="teamLabelBlue">🔵 Equipo Azul: 0</span>
+      <div class="teamBarTrack"><div id="teamBarFillBlue" class="teamBarFill"></div></div>
+    </div>
+    <div class="teamRow">
+      <span id="teamLabelRed">🔴 Equipo Rojo: 0</span>
+      <div class="teamBarTrack"><div id="teamBarFillRed" class="teamBarFill"></div></div>
+    </div>
   </div>
   <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
@@ -1097,7 +1134,7 @@
   <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
     <h3 style="margin:0 0 6px; font-size:15px;">Modo multijugador local</h3>
     <p style="font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-      Cada jugador tiene su propio nivel por tema. Elegí cómo jugar: turnos libres, torneo de eliminación directa, o cooperativo (todos suman a una meta en común).
+      Cada jugador tiene su propio nivel por tema. Elegí cómo jugar: turnos libres, torneo de eliminación directa, cooperativo (todos suman a una meta en común), o por equipos (2 equipos compiten entre sí).
     </p>
     <div id="playerInputs" style="overflow-y:auto; flex:1; margin-bottom:10px;"></div>
     <button id="addPlayerBtn" style="background:transparent; border:1.5px dashed var(--panel-line); color:var(--text-dim); padding:9px; border-radius:9px; font-size:12.5px; cursor:pointer; margin-bottom:10px;">+ Agregar jugador</button>
@@ -1112,6 +1149,12 @@
       <input id="coopGoalInput" type="number" min="50" step="50" value="1000" style="width:90px; padding:9px 10px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px;">
       <button id="startCoopBtn" style="flex:1; background:transparent; border:1.5px solid var(--good); color:var(--good); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">🤝 Modo cooperativo</button>
     </div>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <input id="teamGoalInput" type="number" min="50" step="50" value="500" style="width:90px; padding:9px 10px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px;">
+      <button id="startTeamsBtn" style="flex:1; background:transparent; border:1.5px solid #5f9df7; color:#5f9df7; padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">🔵🔴 Por equipos</button>
+    </div>
+    <p style="font-size:10.5px; color:var(--text-dim); margin:-4px 0 8px;">Tocá el círculo de cada jugador para asignarlo a un equipo.</p>
 
     <button id="viewBracketBtn" style="width:100%; display:none; margin-bottom:8px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">📋 Ver bracket</button>
     <button id="exitMultiplayerBtn" style="display:none; width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Salir del modo multijugador</button>
@@ -1383,6 +1426,15 @@
   <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
     <button id="coopNewGoalBtn" style="background:var(--good);color:#0a1f14;border:none;padding:12px 22px;border-radius:24px;font-weight:800;cursor:pointer;">🎯 Meta más alta</button>
     <button id="coopExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir del modo cooperativo</button>
+  </div>
+</div>
+
+<div id="teamWinOverlay" class="fullOverlay">
+  <h2 id="teamWinTitle" style="color:#5f9df7;">🏆 ¡Ganó el Equipo Azul!</h2>
+  <p id="teamWinScores" style="font-size:16px; font-weight:800; color:var(--text); max-width:none;">Azul 520 — Rojo 380</p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+    <button id="teamRematchBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 24px;border-radius:24px;font-weight:800;cursor:pointer;">🔄 Revancha</button>
+    <button id="teamExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir del modo por equipos</button>
   </div>
 </div>
 
@@ -2077,6 +2129,14 @@
   let coopGoal = 1000;
   let coopScore = 0;
   let coopGoalReachedPending = false; // se marca al cruzar la meta; se muestra al cerrar la pregunta
+
+  // -------- Modo por equipos --------
+  // 2 equipos fijos (Azul y Rojo). Cada jugador sigue con su nivel/puntaje individual,
+  // pero sus aciertos también suman al puntaje de SU equipo. Gana el primero en llegar a la meta.
+  let teamModeEnabled = false;
+  let teamGoal = 500;
+  let teamScores = { 1: 0, 2: 0 };
+  let teamWinPending = null; // número de equipo (1 o 2) cuando se cruza la meta
 
   // -------- Comodines --------
   let wildcards = { fifty: 3, skip: 3, double: 3, hint: 3 };
@@ -3144,6 +3204,7 @@
       turnLabel.style.display = 'none';
       playerChips.style.display = 'none';
       document.getElementById('coopBanner').style.display = 'none';
+      document.getElementById('teamBanner').style.display = 'none';
       renderTournamentBanner();
       return;
     }
@@ -3153,6 +3214,7 @@
       turnLabel.style.display = 'none';
       playerChips.style.display = 'none';
       document.getElementById('coopBanner').style.display = 'none';
+      document.getElementById('teamBanner').style.display = 'none';
       return;
     }
     turnLabel.style.display = 'inline';
@@ -3167,11 +3229,13 @@
         chip.style.background = p.color + '26'; // tinte suave del color propio
         chip.style.color = p.color;
       }
-      chip.textContent = (p.avatar ? p.avatar + ' ' : '') + p.name + ': ' + p.score;
+      const teamMark = (teamModeEnabled && p.team) ? (p.team === 1 ? '🔵' : '🔴') : '';
+      chip.textContent = teamMark + (p.avatar ? p.avatar + ' ' : '') + p.name + ': ' + p.score;
       playerChips.appendChild(chip);
     });
 
     renderCoopBanner();
+    renderTeamBanner();
   }
 
   function renderCoopBanner(){
@@ -3185,6 +3249,20 @@
     document.getElementById('coopBannerText').textContent = '🤝 Equipo: ' + coopScore + ' / ' + coopGoal + ' puntos';
     document.getElementById('coopBarFill').style.width = pct + '%';
     coopBanner.style.display = 'block';
+  }
+
+  function renderTeamBanner(){
+    const teamBanner = document.getElementById('teamBanner');
+    if(!teamBanner) return;
+    if(!teamModeEnabled || !multiplayerEnabled){
+      teamBanner.style.display = 'none';
+      return;
+    }
+    document.getElementById('teamLabelBlue').textContent = '🔵 Equipo Azul: ' + teamScores[1];
+    document.getElementById('teamLabelRed').textContent = '🔴 Equipo Rojo: ' + teamScores[2];
+    document.getElementById('teamBarFillBlue').style.width = Math.min(100, (teamScores[1]/teamGoal)*100) + '%';
+    document.getElementById('teamBarFillRed').style.width = Math.min(100, (teamScores[2]/teamGoal)*100) + '%';
+    teamBanner.style.display = 'block';
   }
 
   function nextTurn(){
@@ -3384,19 +3462,24 @@
 
   const AVATAR_OPTIONS = ['😀','😎','🦁','🐱','🐶','🦊','🐻','🐼','🦄','🐸','🤖','👽','🎃','⭐','🔥','💎','🚀','🍕'];
   const COLOR_OPTIONS = ['#ff5d6c','#ffd166','#6ac720','#b71daf','#eadd02','#ea581c','#4fd68c','#5f9df7','#eea602','#b31470'];
+  const TEAM_COLORS = { 1:'#5f9df7', 2:'#ff5d6c' };
+  const TEAM_NAMES = { 1:'Equipo Azul', 2:'Equipo Rojo' };
 
-  function addPlayerRow(value, avatarIdx, colorIdx){
+  function addPlayerRow(value, avatarIdx, colorIdx, team){
     const rowIndex = playerInputs.children.length;
     if(avatarIdx === undefined || avatarIdx < 0) avatarIdx = rowIndex % AVATAR_OPTIONS.length;
     if(colorIdx === undefined || colorIdx < 0) colorIdx = rowIndex % COLOR_OPTIONS.length;
+    if(team !== 1 && team !== 2) team = (rowIndex % 2) + 1;
 
     const row = document.createElement('div');
     row.className = 'playerRow';
     row.dataset.avatarIdx = avatarIdx;
     row.dataset.colorIdx = colorIdx;
+    row.dataset.team = team;
     row.innerHTML = `
       <button class="avatarPickBtn" type="button" title="Tocá para cambiar el avatar">${AVATAR_OPTIONS[avatarIdx]}</button>
       <input type="text" placeholder="Nombre del jugador" maxlength="16" value="${value ? value.replace(/"/g,'') : ''}">
+      <button class="teamPickBtn" type="button" title="Tocá para cambiar de equipo" style="background:${TEAM_COLORS[team]};">${team}</button>
       <button class="colorPickBtn" type="button" title="Tocá para cambiar el color" style="background:${COLOR_OPTIONS[colorIdx]}"></button>
       <button class="removePlayerBtn" type="button">✕</button>`;
 
@@ -3404,6 +3487,13 @@
       const idx = (parseInt(row.dataset.avatarIdx,10) + 1) % AVATAR_OPTIONS.length;
       row.dataset.avatarIdx = idx;
       row.querySelector('.avatarPickBtn').textContent = AVATAR_OPTIONS[idx];
+    });
+    row.querySelector('.teamPickBtn').addEventListener('click', ()=>{
+      const newTeam = parseInt(row.dataset.team,10) === 1 ? 2 : 1;
+      row.dataset.team = newTeam;
+      const btn = row.querySelector('.teamPickBtn');
+      btn.textContent = newTeam;
+      btn.style.background = TEAM_COLORS[newTeam];
     });
     row.querySelector('.colorPickBtn').addEventListener('click', ()=>{
       const idx = (parseInt(row.dataset.colorIdx,10) + 1) % COLOR_OPTIONS.length;
@@ -3419,7 +3509,7 @@
   function renderPlayerSetup(){
     playerInputs.innerHTML = '';
     if(multiplayerEnabled && players.length){
-      players.forEach(p => addPlayerRow(p.name, AVATAR_OPTIONS.indexOf(p.avatar), COLOR_OPTIONS.indexOf(p.color)));
+      players.forEach(p => addPlayerRow(p.name, AVATAR_OPTIONS.indexOf(p.avatar), COLOR_OPTIONS.indexOf(p.color), p.team));
     } else {
       addPlayerRow('Jugador 1');
       addPlayerRow('Jugador 2');
@@ -3444,7 +3534,8 @@
       const entries = rows.map(row => ({
         name: row.querySelector('input[type="text"]').value.trim(),
         avatar: AVATAR_OPTIONS[parseInt(row.dataset.avatarIdx,10) || 0],
-        color: COLOR_OPTIONS[parseInt(row.dataset.colorIdx,10) || 0]
+        color: COLOR_OPTIONS[parseInt(row.dataset.colorIdx,10) || 0],
+        team: parseInt(row.dataset.team,10) === 2 ? 2 : 1
       })).filter(e => e.name.length > 0);
 
       if(entries.length < 2){
@@ -3453,7 +3544,7 @@
       }
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0, marathonBest: null }));
+      players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, team: e.team, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0, marathonBest: null }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -3468,6 +3559,7 @@
       if(!setupPlayersFromForm()) return;
       tournamentActive = false;
       coopModeEnabled = false;
+      teamModeEnabled = false;
       renderWheel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
@@ -3476,6 +3568,7 @@
     document.getElementById('startTournamentBtn').addEventListener('click', ()=>{
       if(!setupPlayersFromForm()) return;
       coopModeEnabled = false;
+      teamModeEnabled = false;
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
       startTournament();
@@ -3483,6 +3576,7 @@
     document.getElementById('startCoopBtn').addEventListener('click', ()=>{
       if(!setupPlayersFromForm()) return;
       tournamentActive = false;
+      teamModeEnabled = false;
       coopModeEnabled = true;
       coopGoal = Math.max(50, parseInt(document.getElementById('coopGoalInput').value, 10) || 1000);
       coopScore = 0;
@@ -3493,11 +3587,33 @@
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
     });
+    document.getElementById('startTeamsBtn').addEventListener('click', ()=>{
+      const rows = Array.from(playerInputs.querySelectorAll('.playerRow'));
+      const teamsUsed = new Set(rows.map(r => parseInt(r.dataset.team,10)));
+      if(!teamsUsed.has(1) || !teamsUsed.has(2)){
+        mpWarning.textContent = 'Necesitás al menos un jugador en cada equipo.';
+        mpWarning.style.display = 'block';
+        return;
+      }
+      if(!setupPlayersFromForm()) return;
+      tournamentActive = false;
+      coopModeEnabled = false;
+      teamModeEnabled = true;
+      teamGoal = Math.max(50, parseInt(document.getElementById('teamGoalInput').value, 10) || 500);
+      teamScores = { 1: 0, 2: 0 };
+      teamWinPending = null;
+      renderWheel();
+      renderTurnUI();
+      multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
+      multiplayerOverlay.style.display = 'none';
+    });
     exitMultiplayerBtn.addEventListener('click', ()=>{
       multiplayerEnabled = false;
       tournamentActive = false;
       coopModeEnabled = false;
       coopScore = 0;
+      teamModeEnabled = false;
+      teamScores = { 1: 0, 2: 0 };
       tournamentRounds = [];
       document.getElementById('viewBracketBtn').style.display = 'none';
       players = [];
@@ -3564,6 +3680,24 @@
       coopModeEnabled = false;
       coopScore = 0;
       renderCoopBanner();
+      spinBtn.disabled = false;
+      nextTurn();
+    });
+
+    document.getElementById('teamRematchBtn').addEventListener('click', ()=>{
+      document.getElementById('teamWinOverlay').classList.remove('show');
+      teamScores = { 1: 0, 2: 0 };
+      teamWinPending = null;
+      renderTeamBanner();
+      spinBtn.disabled = false;
+      nextTurn();
+    });
+    document.getElementById('teamExitBtn').addEventListener('click', ()=>{
+      document.getElementById('teamWinOverlay').classList.remove('show');
+      teamModeEnabled = false;
+      teamScores = { 1: 0, 2: 0 };
+      teamWinPending = null;
+      renderTeamBanner();
       spinBtn.disabled = false;
       nextTurn();
     });
@@ -5071,6 +5205,18 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         }
       }
 
+      if(teamModeEnabled && multiplayerEnabled && players[currentPlayerIndex]){
+        const myTeam = players[currentPlayerIndex].team;
+        if(myTeam === 1 || myTeam === 2){
+          teamScores[myTeam] += pts;
+          renderTeamBanner();
+          if(teamScores[myTeam] >= teamGoal && !teamWinPending){
+            teamWinPending = myTeam;
+            msg += ' · 🏆 ¡' + TEAM_NAMES[myTeam] + ' llegó a la meta!';
+          }
+        }
+      }
+
       feedback.textContent = msg;
       feedback.className = 'good';
       launchConfetti();
@@ -5167,6 +5313,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       return; // no reactiva el giro ni pasa el turno hasta elegir cómo seguir
     }
 
+    if(teamWinPending){
+      showTeamWin(teamWinPending);
+      teamWinPending = null;
+      return; // no reactiva el giro ni pasa el turno hasta elegir cómo seguir
+    }
+
     spinBtn.disabled = false;
     checkWin();
 
@@ -5190,6 +5342,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       contribBox.appendChild(row);
     });
     document.getElementById('coopGoalOverlay').classList.add('show');
+    launchConfetti();
+  }
+
+  function showTeamWin(winningTeam){
+    saveCurrentPlayer();
+    const title = document.getElementById('teamWinTitle');
+    title.textContent = '🏆 ¡Ganó el ' + TEAM_NAMES[winningTeam] + '!';
+    title.style.color = TEAM_COLORS[winningTeam];
+    document.getElementById('teamWinScores').textContent =
+      'Azul ' + teamScores[1] + ' — Rojo ' + teamScores[2];
+    document.getElementById('teamWinOverlay').classList.add('show');
     launchConfetti();
   }
 
