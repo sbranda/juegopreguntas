@@ -182,6 +182,14 @@
     border:1.5px solid rgba(255,159,28,0.5);
     padding:4px 14px; border-radius:16px;
   }
+  #marathonBadge{
+    font-family: var(--font-display);
+    font-size:12.5px; font-weight:700; color:#5f9df7;
+    margin:6px 0 0;
+    background:rgba(95,157,247,0.12);
+    border:1.5px solid rgba(95,157,247,0.5);
+    padding:4px 14px; border-radius:16px;
+  }
 
   /* ---- Wheel ---- */
   #wheelWrap{
@@ -950,6 +958,7 @@
   <div id="score">🏆 <span id="turnLabel" style="display:none;"></span><span id="scoreVal">0</span> puntos</div>
   <div id="streakBadge" style="display:none;">🔥 Racha x<span id="streakVal">0</span></div>
   <div id="survivalBadge" style="display:none;">💀 Supervivencia: <span id="survivalVal">0</span> · Récord: <span id="survivalBestVal">0</span></div>
+  <div id="marathonBadge" style="display:none;">🏃 Maratón: <span id="marathonTimeVal">0:00</span> · <span id="marathonCountVal">0</span>/20</div>
   <div id="playerChips" style="display:none;"></div>
   <div id="tournamentBanner"></div>
   <div id="coopBanner" style="display:none;">
@@ -985,6 +994,7 @@
     <button id="reviewModeBtn">📖 Modo repaso</button>
     <button id="myQuestionsBtn">✏️ Mis preguntas</button>
     <button id="survivalModeBtn">💀 Supervivencia</button>
+    <button id="marathonModeBtn">🏃 Modo maratón</button>
   </div>
 
   <button id="legendToggleBtn" type="button" style="width:100%; margin-top:20px; display:flex; align-items:center; justify-content:space-between; background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:11px 14px; color:var(--text); font-weight:800; font-size:13px; cursor:pointer; font-family:inherit;">
@@ -1056,7 +1066,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso y récord de supervivencia</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia y récord de maratón</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -1342,6 +1352,17 @@
   <div style="display:flex; gap:8px;">
     <button id="survivalRetryBtn" style="background:var(--bad);color:#fff;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">🔄 Intentar de nuevo</button>
     <button id="survivalExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir</button>
+  </div>
+</div>
+
+<div id="marathonOverlay" class="fullOverlay">
+  <h2 style="color:var(--accent-2);">🏃 ¡Maratón completada!</h2>
+  <p id="marathonResultTime" style="color:var(--accent); font-size:1.6em; font-weight:800; max-width:none;">0:00</p>
+  <p style="font-size:13px; color:var(--text-dim); margin-top:-8px;" id="marathonResultAccuracy">0/20 correctas</p>
+  <p id="marathonResultBest" style="font-size:12.5px; color:var(--text-dim); margin-top:-4px;"></p>
+  <div style="display:flex; gap:8px;">
+    <button id="marathonRetryBtn" style="background:var(--accent-2);color:#1a1608;border:none;padding:12px 28px;border-radius:24px;font-weight:800;cursor:pointer;">🔄 Otra maratón</button>
+    <button id="marathonExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir</button>
   </div>
 </div>
 
@@ -2187,6 +2208,44 @@
     }
   }
   loadSurvivalMode();
+
+  // -------- Modo maratón: sin vidas, cronometrado, mide velocidad pura --------
+  const MARATHON_TARGET = 20; // preguntas por maratón
+  let marathonModeEnabled = false; // el interruptor está prendido (armado)
+  let marathonActive = false;      // hay una maratón corriendo ahora mismo
+  let marathonCount = 0;
+  let marathonCorrect = 0;
+  let marathonStartTime = 0;
+  let marathonTimerInterval = null;
+  let soloMarathonBest = null;     // segundos, null = sin récord todavía
+  let marathonBest = null;         // apunta a quien tiene el turno
+
+  async function loadSoloMarathonBest(){
+    const raw = await storageGet('marathon_best');
+    if(raw) soloMarathonBest = parseFloat(raw);
+    marathonBest = soloMarathonBest;
+  }
+  loadSoloMarathonBest();
+
+  async function saveSoloMarathonBest(){
+    if(multiplayerEnabled) return;
+    await storageSet('marathon_best', String(soloMarathonBest));
+  }
+
+  async function loadMarathonMode(){
+    const saved = await storageGet('marathon_mode');
+    if(saved === 'on'){
+      marathonModeEnabled = true;
+      if(typeof updateMarathonBtnLabel === 'function') updateMarathonBtnLabel();
+    }
+  }
+  loadMarathonMode();
+
+  function formatMarathonTime(totalSeconds){
+    const m = Math.floor(totalSeconds / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
 
   // -------- Preguntas personalizadas (mías, agregadas a mano) --------
   // customQuestions[topicKey][level] = array de {q, options, correct, image, explanation, id, custom:true}
@@ -3057,6 +3116,7 @@
     missedQuestions = p.missed;
     survivalStreak = p.survivalStreak || 0;
     survivalBest = p.survivalBest || 0;
+    marathonBest = (p.marathonBest !== undefined) ? p.marathonBest : null;
     if(typeof renderSurvivalBadge === 'function') renderSurvivalBadge();
   }
 
@@ -3072,6 +3132,7 @@
     p.missed = missedQuestions;
     p.survivalStreak = survivalStreak;
     p.survivalBest = survivalBest;
+    p.marathonBest = marathonBest;
   }
 
   function renderTurnUI(){
@@ -3392,7 +3453,7 @@
       }
       if(multiplayerEnabled) saveCurrentPlayer();
 
-      players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0 }));
+      players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0, marathonBest: null }));
       currentPlayerIndex = 0;
       multiplayerEnabled = true;
       loadCurrentPlayer();
@@ -3751,6 +3812,10 @@
       soloSurvivalBest = 0;
       survivalBest = 0;
       survivalStreak = 0;
+      soloMarathonBest = null;
+      marathonBest = null;
+      marathonActive = false;
+      if(typeof stopMarathonTimer === 'function') stopMarathonTimer();
       await storageDelete('stats_solo');
       await storageDelete('achievements_solo');
       await storageDelete('daily_last_played');
@@ -3759,12 +3824,13 @@
       Object.keys(dailyHistory).forEach(k => delete dailyHistory[k]);
       await storageDelete('missed_solo');
       await storageDelete('survival_best');
+      await storageDelete('marathon_best');
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
           p.score = 0; p.state = freshTopicState(); p.wildcards = freshWildcards(); p.streak = 0;
           p.stats = freshStats(); p.achievements = []; p.missed = freshMissed();
-          p.survivalStreak = 0; p.survivalBest = 0;
+          p.survivalStreak = 0; p.survivalBest = 0; p.marathonBest = null;
         });
       }
 
@@ -4508,6 +4574,102 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     nextTurn();
   });
 
+  // ---------------- Modo maratón ----------------
+  const marathonModeBtn = document.getElementById('marathonModeBtn');
+  const marathonBadge = document.getElementById('marathonBadge');
+  const marathonOverlay = document.getElementById('marathonOverlay');
+
+  function updateMarathonBtnLabel(){
+    if(!marathonModeBtn) return;
+    marathonModeBtn.textContent = marathonModeEnabled ? '🏃 Maratón: ON' : '🏃 Modo maratón';
+    marathonModeBtn.style.borderColor = marathonModeEnabled ? 'var(--accent-2)' : 'var(--panel-line)';
+    marathonModeBtn.style.color = marathonModeEnabled ? 'var(--accent-2)' : 'var(--text-dim)';
+  }
+
+  function renderMarathonBadge(){
+    if(!marathonBadge) return;
+    if(marathonActive){
+      const elapsed = (Date.now() - marathonStartTime) / 1000;
+      document.getElementById('marathonTimeVal').textContent = formatMarathonTime(elapsed);
+      document.getElementById('marathonCountVal').textContent = marathonCount;
+      marathonBadge.style.display = 'inline-block';
+    } else {
+      marathonBadge.style.display = 'none';
+    }
+  }
+
+  function startMarathonRun(){
+    marathonActive = true;
+    marathonCount = 0;
+    marathonCorrect = 0;
+    marathonStartTime = Date.now();
+    renderMarathonBadge();
+    if(marathonTimerInterval) clearInterval(marathonTimerInterval);
+    marathonTimerInterval = setInterval(renderMarathonBadge, 500);
+  }
+
+  function stopMarathonTimer(){
+    if(marathonTimerInterval){ clearInterval(marathonTimerInterval); marathonTimerInterval = null; }
+  }
+
+  if(marathonModeBtn){
+    marathonModeBtn.addEventListener('click', async ()=>{
+      marathonModeEnabled = !marathonModeEnabled;
+      updateMarathonBtnLabel();
+      await storageSet('marathon_mode', marathonModeEnabled ? 'on' : 'off');
+      if(marathonModeEnabled && !marathonActive){
+        startMarathonRun(); // arranca ya mismo al activarlo, no hace falta esperar el próximo giro
+      }
+      if(!marathonModeEnabled){
+        marathonActive = false;
+        stopMarathonTimer();
+        renderMarathonBadge();
+      }
+    });
+  }
+  updateMarathonBtnLabel();
+  renderMarathonBadge();
+
+  function marathonFinish(){
+    stopMarathonTimer();
+    marathonActive = false;
+    const elapsedSeconds = (Date.now() - marathonStartTime) / 1000;
+    const isNewRecord = soloMarathonBest === null || elapsedSeconds < soloMarathonBest;
+    if(!multiplayerEnabled && isNewRecord){
+      soloMarathonBest = elapsedSeconds;
+      marathonBest = elapsedSeconds;
+      saveSoloMarathonBest();
+    } else if(multiplayerEnabled && (marathonBest === null || elapsedSeconds < marathonBest)){
+      marathonBest = elapsedSeconds;
+    }
+
+    document.getElementById('marathonResultTime').textContent = formatMarathonTime(elapsedSeconds);
+    document.getElementById('marathonResultAccuracy').textContent = marathonCorrect + '/' + MARATHON_TARGET + ' correctas';
+    const bestEl = document.getElementById('marathonResultBest');
+    bestEl.textContent = (marathonBest !== null)
+      ? ((marathonBest === elapsedSeconds) ? '🎉 ¡Nuevo récord!' : 'Tu récord: ' + formatMarathonTime(marathonBest))
+      : '';
+    renderMarathonBadge();
+    marathonOverlay.classList.add('show');
+  }
+
+  document.getElementById('marathonRetryBtn').addEventListener('click', ()=>{
+    marathonOverlay.classList.remove('show');
+    startMarathonRun();
+    spinBtn.disabled = false;
+    nextTurn();
+  });
+  document.getElementById('marathonExitBtn').addEventListener('click', async ()=>{
+    marathonModeEnabled = false;
+    marathonActive = false;
+    updateMarathonBtnLabel();
+    renderMarathonBadge();
+    await storageSet('marathon_mode', 'off');
+    marathonOverlay.classList.remove('show');
+    spinBtn.disabled = false;
+    nextTurn();
+  });
+
   // ---------------- Mis preguntas (personalizadas) ----------------
   const myQuestionsBtn = document.getElementById('myQuestionsBtn');
   const myQuestionsOverlay = document.getElementById('myQuestionsOverlay');
@@ -4866,6 +5028,11 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       }
       renderSurvivalBadge();
     }
+    if(marathonActive){
+      marathonCount++;
+      if(isCorrect) marathonCorrect++;
+      renderMarathonBadge();
+    }
     allBtns.forEach(b=>{
       if(b.textContent === currentQuestionData.options[correctIdx]){
         b.classList.add('correct');
@@ -4989,6 +5156,11 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       return; // no reactiva el giro ni pasa el turno hasta que elija reintentar o salir
     }
 
+    if(marathonActive && marathonCount >= MARATHON_TARGET){
+      marathonFinish();
+      return; // no reactiva el giro hasta elegir "otra maratón" o "salir"
+    }
+
     if(coopGoalReachedPending){
       coopGoalReachedPending = false;
       showCoopCelebration();
@@ -5109,6 +5281,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       { id:'timerModeBtn', icon:'⏱️', label:'Contrarreloj', toggle:true },
       { id:'reviewModeBtn', icon:'📖', label:'Modo repaso', toggle:true },
       { id:'survivalModeBtn', icon:'💀', label:'Supervivencia', toggle:true },
+      { id:'marathonModeBtn', icon:'🏃', label:'Modo maratón', toggle:true },
     ]},
     { title:'👥 Multijugador', items:[
       { id:'multiplayerBtn', icon:'👥', label:'Multijugador y torneo' },
