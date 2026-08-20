@@ -48,6 +48,52 @@
     font-size: calc(16px * var(--a11y-scale));
   }
   *{box-sizing:border-box;}
+
+  #splashScreen{
+    position:fixed; inset:0; z-index:999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, #3a2354 0%, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 100%, #2a1a3d 0%, transparent 55%),
+      #150f22;
+    transition: opacity 0.5s ease;
+  }
+  #splashScreen.hide{ opacity:0; pointer-events:none; }
+  #splashWheelIcon{
+    width:92px; height:92px; border-radius:50%;
+    background:conic-gradient(#b30317,#d20200,#ea581c,#e9ab34,#b71daf,#e5013c,#b31470,#eea602,#2bab34,#6ac720,#eadd02,#b30317);
+    border:4px solid #e9e6de;
+    box-shadow:0 12px 32px rgba(0,0,0,0.55);
+    animation: splashSpin 2.6s linear infinite;
+  }
+  @keyframes splashSpin{ to{ transform:rotate(360deg); } }
+  #splashTitle{
+    font-family:'Baloo 2','Nunito',sans-serif;
+    font-size:24px; font-weight:800; color:#fbf6ea; margin:0; text-align:center;
+  }
+  #splashTitle span{
+    background:linear-gradient(90deg,#ff5d6c,#ff9f1c,#ffd166,#6ac720,#b71daf);
+    background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: splashShimmer 3s linear infinite;
+  }
+  @keyframes splashShimmer{ to{ background-position:200% center; } }
+  #splashDots{ display:flex; gap:7px; }
+  #splashDots span{
+    width:9px; height:9px; border-radius:50%; background:#ffd166;
+    animation: splashDotPulse 1.2s ease-in-out infinite;
+  }
+  #splashDots span:nth-child(2){ animation-delay:0.15s; }
+  #splashDots span:nth-child(3){ animation-delay:0.3s; }
+  @keyframes splashDotPulse{
+    0%,80%,100%{ opacity:0.25; transform:scale(0.8); }
+    40%{ opacity:1; transform:scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #splashWheelIcon{ animation:none; }
+    #splashTitle span{ animation:none; background:none; -webkit-text-fill-color:initial; color:#ffd166; }
+    #splashDots span{ animation:none; opacity:0.7; }
+  }
   html,body{
     margin:0; padding:0; min-height:100%;
     background:
@@ -859,6 +905,11 @@
 </style>
 </head>
 <body>
+<div id="splashScreen">
+  <div id="splashWheelIcon"></div>
+  <h1 id="splashTitle">Rueda de <span>Preguntas</span></h1>
+  <div id="splashDots"><span></span><span></span><span></span></div>
+</div>
 <div id="app">
   <header>
     <div id="marqueeTop">
@@ -5020,6 +5071,37 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     if(!seen){
       welcomeOverlay.style.display = 'flex';
     }
+  })();
+
+  // -------- Ocultar el splash screen --------
+  // Se muestra un mínimo de tiempo (para que no parpadee si todo carga muy rápido) y
+  // como máximo unos segundos (por si algo tarda), lo que pase primero entre "todo listo"
+  // y el tope máximo.
+  (function hideSplashScreen(){
+    const splashEl = document.getElementById('splashScreen');
+    if(!splashEl) return;
+    const MIN_MS = 900;
+    const MAX_MS = 3000;
+    const start = performance.now();
+    let done = false;
+
+    function reallyHide(){
+      if(done) return;
+      done = true;
+      const elapsed = performance.now() - start;
+      const wait = Math.max(0, MIN_MS - elapsed);
+      setTimeout(()=>{
+        splashEl.classList.add('hide');
+        setTimeout(()=> splashEl.remove(), 550);
+      }, wait);
+    }
+
+    if(document.fonts && document.fonts.ready){
+      document.fonts.ready.then(reallyHide).catch(reallyHide);
+    } else {
+      reallyHide();
+    }
+    setTimeout(reallyHide, MAX_MS); // tope máximo por las dudas
   })();
 
   renderScore();
