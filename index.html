@@ -902,6 +902,30 @@
     padding:7px 16px; border-radius:16px; margin:6px 0 0;
     text-align:center; flex-wrap:wrap;
   }
+  #coopBanner{
+    width:100%; max-width:340px;
+    background:rgba(79,214,140,0.1); border:1.5px solid var(--good);
+    border-radius:14px; padding:8px 14px; margin:6px 0 0;
+  }
+  #coopBannerText{
+    font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--good);
+    text-align:center; margin-bottom:6px;
+  }
+  #coopBarTrack{
+    width:100%; height:9px; border-radius:5px; background:#2a2a3c; overflow:hidden;
+  }
+  #coopBarFill{
+    height:100%; border-radius:5px;
+    background:linear-gradient(90deg, var(--good), #7fe6ab);
+    transition:width 0.4s ease;
+  }
+  .coopContribRow{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 0; border-bottom:1px solid var(--panel-line);
+    font-size:12.5px;
+  }
+  .coopContribRow:last-child{ border-bottom:none; }
+  .coopContribRow .ccScore{ font-weight:800; color:var(--good); }
 </style>
 </head>
 <body>
@@ -928,6 +952,10 @@
   <div id="survivalBadge" style="display:none;">💀 Supervivencia: <span id="survivalVal">0</span> · Récord: <span id="survivalBestVal">0</span></div>
   <div id="playerChips" style="display:none;"></div>
   <div id="tournamentBanner"></div>
+  <div id="coopBanner" style="display:none;">
+    <div id="coopBannerText"></div>
+    <div id="coopBarTrack"><div id="coopBarFill"></div></div>
+  </div>
   <p id="totalQCount" style="font-size:11px;color:var(--text-dim);margin:8px 0 6px;"></p>
 
   <div id="wheelWrap">
@@ -1059,7 +1087,7 @@
   <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:380px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
     <h3 style="margin:0 0 6px; font-size:15px;">Modo multijugador local</h3>
     <p style="font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-      Cada jugador tiene su propio puntaje y nivel por tema. Se van pasando la tablet por turnos.
+      Cada jugador tiene su propio nivel por tema. Elegí cómo jugar: turnos libres, torneo de eliminación directa, o cooperativo (todos suman a una meta en común).
     </p>
     <div id="playerInputs" style="overflow-y:auto; flex:1; margin-bottom:10px;"></div>
     <button id="addPlayerBtn" style="background:transparent; border:1.5px dashed var(--panel-line); color:var(--text-dim); padding:9px; border-radius:9px; font-size:12.5px; cursor:pointer; margin-bottom:10px;">+ Agregar jugador</button>
@@ -1069,6 +1097,12 @@
       <button id="closeMultiplayerBtn" style="flex:none; padding:11px 16px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
     </div>
     <button id="startTournamentBtn" style="width:100%; margin-bottom:8px; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">🏆 Iniciar torneo (eliminación directa)</button>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <input id="coopGoalInput" type="number" min="50" step="50" value="1000" style="width:90px; padding:9px 10px; border-radius:8px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px;">
+      <button id="startCoopBtn" style="flex:1; background:transparent; border:1.5px solid var(--good); color:var(--good); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">🤝 Modo cooperativo</button>
+    </div>
+
     <button id="viewBracketBtn" style="width:100%; display:none; margin-bottom:8px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">📋 Ver bracket</button>
     <button id="exitMultiplayerBtn" style="display:none; width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Salir del modo multijugador</button>
   </div>
@@ -1318,6 +1352,16 @@
   <div style="display:flex; gap:8px;">
     <button id="championNewTournamentBtn" style="background:var(--accent);color:#1a1608;border:none;padding:12px 24px;border-radius:24px;font-weight:800;cursor:pointer;">🏆 Nuevo torneo</button>
     <button id="championFreePlayBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Turnos libres</button>
+  </div>
+</div>
+
+<div id="coopGoalOverlay" class="fullOverlay">
+  <h2 style="color:var(--good);">🤝 ¡Meta cumplida entre todos!</h2>
+  <p style="font-size:22px; font-weight:800; color:var(--text); max-width:none;" id="coopGoalScore">—</p>
+  <div id="coopContributions" style="max-width:320px; margin:0 0 18px; text-align:left;"></div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+    <button id="coopNewGoalBtn" style="background:var(--good);color:#0a1f14;border:none;padding:12px 22px;border-radius:24px;font-weight:800;cursor:pointer;">🎯 Meta más alta</button>
+    <button id="coopExitBtn" style="background:transparent;border:1.5px solid var(--panel-line);color:var(--text-dim);padding:12px 20px;border-radius:24px;font-weight:800;cursor:pointer;">Salir del modo cooperativo</button>
   </div>
 </div>
 
@@ -2003,6 +2047,15 @@
   let matchTurnPlayer = 'a'; // 'a' o 'b'
   let matchQuestionsAsked = { a: 0, b: 0 };
   const QUESTIONS_PER_MATCH_PLAYER = 3;
+
+  // -------- Modo cooperativo --------
+  // Todos los jugadores siguen respondiendo con su propio nivel por tema (progresión
+  // individual), pero los puntos de cada acierto también van sumando a un puntaje de
+  // equipo compartido, con una meta en común.
+  let coopModeEnabled = false;
+  let coopGoal = 1000;
+  let coopScore = 0;
+  let coopGoalReachedPending = false; // se marca al cruzar la meta; se muestra al cerrar la pregunta
 
   // -------- Comodines --------
   let wildcards = { fifty: 3, skip: 3, double: 3, hint: 3 };
@@ -3029,6 +3082,7 @@
     if(tournamentActive){
       turnLabel.style.display = 'none';
       playerChips.style.display = 'none';
+      document.getElementById('coopBanner').style.display = 'none';
       renderTournamentBanner();
       return;
     }
@@ -3037,6 +3091,7 @@
     if(!multiplayerEnabled || players.length < 2){
       turnLabel.style.display = 'none';
       playerChips.style.display = 'none';
+      document.getElementById('coopBanner').style.display = 'none';
       return;
     }
     turnLabel.style.display = 'inline';
@@ -3054,6 +3109,21 @@
       chip.textContent = (p.avatar ? p.avatar + ' ' : '') + p.name + ': ' + p.score;
       playerChips.appendChild(chip);
     });
+
+    renderCoopBanner();
+  }
+
+  function renderCoopBanner(){
+    const coopBanner = document.getElementById('coopBanner');
+    if(!coopBanner) return;
+    if(!coopModeEnabled || !multiplayerEnabled){
+      coopBanner.style.display = 'none';
+      return;
+    }
+    const pct = Math.min(100, (coopScore / coopGoal) * 100);
+    document.getElementById('coopBannerText').textContent = '🤝 Equipo: ' + coopScore + ' / ' + coopGoal + ' puntos';
+    document.getElementById('coopBarFill').style.width = pct + '%';
+    coopBanner.style.display = 'block';
   }
 
   function nextTurn(){
@@ -3336,6 +3406,7 @@
     startMultiplayerBtn.addEventListener('click', ()=>{
       if(!setupPlayersFromForm()) return;
       tournamentActive = false;
+      coopModeEnabled = false;
       renderWheel();
       renderTurnUI();
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
@@ -3343,13 +3414,29 @@
     });
     document.getElementById('startTournamentBtn').addEventListener('click', ()=>{
       if(!setupPlayersFromForm()) return;
+      coopModeEnabled = false;
       multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
       multiplayerOverlay.style.display = 'none';
       startTournament();
     });
+    document.getElementById('startCoopBtn').addEventListener('click', ()=>{
+      if(!setupPlayersFromForm()) return;
+      tournamentActive = false;
+      coopModeEnabled = true;
+      coopGoal = Math.max(50, parseInt(document.getElementById('coopGoalInput').value, 10) || 1000);
+      coopScore = 0;
+      coopGoalReachedPending = false;
+      players.forEach(p => { p.coopContribution = 0; });
+      renderWheel();
+      renderTurnUI();
+      multiplayerBtn.textContent = '👥 ' + players.length + ' jugadores';
+      multiplayerOverlay.style.display = 'none';
+    });
     exitMultiplayerBtn.addEventListener('click', ()=>{
       multiplayerEnabled = false;
       tournamentActive = false;
+      coopModeEnabled = false;
+      coopScore = 0;
       tournamentRounds = [];
       document.getElementById('viewBracketBtn').style.display = 'none';
       players = [];
@@ -3400,6 +3487,24 @@
       renderScore(); renderStreak(); renderLegend(); renderWheel();
       spinBtn.disabled = false;
       renderTurnUI();
+    });
+
+    document.getElementById('coopNewGoalBtn').addEventListener('click', ()=>{
+      document.getElementById('coopGoalOverlay').classList.remove('show');
+      coopGoal = Math.round(coopGoal * 1.5 / 50) * 50; // meta nueva, un 50% más alta
+      coopScore = 0;
+      players.forEach(p => { p.coopContribution = 0; });
+      renderCoopBanner();
+      spinBtn.disabled = false;
+      nextTurn();
+    });
+    document.getElementById('coopExitBtn').addEventListener('click', ()=>{
+      document.getElementById('coopGoalOverlay').classList.remove('show');
+      coopModeEnabled = false;
+      coopScore = 0;
+      renderCoopBanner();
+      spinBtn.disabled = false;
+      nextTurn();
     });
   }
 
@@ -4786,6 +4891,19 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         ? '🎲 ¡Correcto, doble o nada pagó! +' + doubledPts + ' puntos'
         : '¡Correcto! +' + doubledPts + ' puntos';
       if(streakBonus > 0) msg += ' + 🔥 ' + streakBonus + ' de racha (x' + streak + ')';
+
+      if(coopModeEnabled && multiplayerEnabled){
+        coopScore += pts;
+        if(players[currentPlayerIndex]){
+          players[currentPlayerIndex].coopContribution = (players[currentPlayerIndex].coopContribution || 0) + pts;
+        }
+        renderCoopBanner();
+        if(coopScore >= coopGoal && !coopGoalReachedPending){
+          coopGoalReachedPending = true;
+          msg += ' · 🤝 ¡Meta de equipo alcanzada!';
+        }
+      }
+
       feedback.textContent = msg;
       feedback.className = 'good';
       launchConfetti();
@@ -4871,6 +4989,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       return; // no reactiva el giro ni pasa el turno hasta que elija reintentar o salir
     }
 
+    if(coopGoalReachedPending){
+      coopGoalReachedPending = false;
+      showCoopCelebration();
+      return; // no reactiva el giro ni pasa el turno hasta elegir cómo seguir
+    }
+
     spinBtn.disabled = false;
     checkWin();
 
@@ -4880,6 +5004,22 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       nextTurn();
     }
   });
+
+  function showCoopCelebration(){
+    saveCurrentPlayer();
+    document.getElementById('coopGoalScore').textContent = coopScore + ' / ' + coopGoal + ' puntos';
+    const contribBox = document.getElementById('coopContributions');
+    contribBox.innerHTML = '';
+    const sorted = players.slice().sort((a,b)=>(b.coopContribution||0)-(a.coopContribution||0));
+    sorted.forEach(p=>{
+      const row = document.createElement('div');
+      row.className = 'coopContribRow';
+      row.innerHTML = `<span>${p.avatar?p.avatar+' ':''}${p.name}</span><span class="ccScore">${p.coopContribution||0}</span>`;
+      contribBox.appendChild(row);
+    });
+    document.getElementById('coopGoalOverlay').classList.add('show');
+    launchConfetti();
+  }
 
   function checkWin(){
     const allMax = getActiveTopics().every(t => state[t.key] === MAX_LEVEL);
