@@ -49,6 +49,14 @@
   }
   *{box-sizing:border-box;}
 
+  /* Navegación por teclado: foco visible y consistente en toda la app */
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible,
+  textarea:focus-visible, [tabindex]:focus-visible{
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
   #splashScreen{
     position:fixed; inset:0; z-index:999;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
@@ -6570,6 +6578,89 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       reallyHide();
     }
     setTimeout(reallyHide, MAX_MS); // tope máximo por las dudas
+  })();
+
+  // -------- Navegación completa por teclado --------
+  // Para quien juega con teclado físico conectado a la tablet en vez de tocar la pantalla.
+  // Los botones ya son <button> reales (Tab + Enter/Espacio funcionan solos); esto agrega
+  // lo que falta: foco visible ya está en el CSS, y acá van Escape para cerrar el modal
+  // abierto, Tab atrapado dentro de ese modal (no se "escapa" al fondo), y 1-4 para
+  // responder sin soltar el teclado.
+  (function setupKeyboardNav(){
+    const overlaySelector = '[id$="Overlay"]';
+    let trappedModal = null;
+    let lastFocused = null;
+
+    function isVisible(el){
+      if(!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    }
+    function getFocusable(container){
+      return Array.from(container.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetParent !== null);
+    }
+    function topVisibleOverlay(){
+      const all = Array.from(document.querySelectorAll(overlaySelector)).filter(isVisible);
+      return all.length ? all[all.length-1] : null;
+    }
+
+    // Detecta cuándo se abre/cierra cualquier modal (todos terminan en "...Overlay") y
+    // mueve el foco automáticamente adentro, o lo devuelve a donde estaba al cerrarse.
+    const observer = new MutationObserver(()=>{
+      const top = topVisibleOverlay();
+      if(top && top !== trappedModal){
+        trappedModal = top;
+        lastFocused = document.activeElement;
+        const focusables = getFocusable(top);
+        if(focusables.length) focusables[0].focus();
+      } else if(!top && trappedModal){
+        trappedModal = null;
+        if(lastFocused && document.contains(lastFocused)) lastFocused.focus();
+        lastFocused = null;
+      }
+    });
+    document.querySelectorAll(overlaySelector).forEach(el=>{
+      observer.observe(el, { attributes:true, attributeFilter:['style','class'] });
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      // Escape: cierra el modal abierto usando su propio botón "Cerrar" (respeta la
+      // lógica particular de cada uno en vez de forzar el cierre a lo bruto)
+      if(e.key === 'Escape'){
+        const top = topVisibleOverlay();
+        if(top){
+          const closeBtn = top.querySelector('button[id^="close"]');
+          if(closeBtn) closeBtn.click();
+        }
+        return;
+      }
+
+      // Tab atrapado: dentro del modal abierto, no se escapa al contenido de atrás
+      if(e.key === 'Tab' && trappedModal){
+        const focusables = getFocusable(trappedModal);
+        if(!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length-1];
+        if(e.shiftKey && document.activeElement === first){
+          e.preventDefault(); last.focus();
+        } else if(!e.shiftKey && document.activeElement === last){
+          e.preventDefault(); first.focus();
+        }
+        return;
+      }
+
+      // 1-4: responder la pregunta actual sin soltar el teclado
+      if(['1','2','3','4'].includes(e.key)){
+        const modalOverlayEl = document.getElementById('modalOverlay');
+        if(isVisible(modalOverlayEl)){
+          const opts = Array.from(document.querySelectorAll('#options .option'))
+            .filter(b => !b.disabled && b.style.display !== 'none');
+          const opt = opts[parseInt(e.key,10)-1];
+          if(opt) opt.click();
+        }
+      }
+    });
   })();
 
   renderScore();
