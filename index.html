@@ -853,6 +853,19 @@
     filter:drop-shadow(0 0 2px rgba(255,209,102,0.7));
   }
 
+  .historyRow{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 4px; border-bottom:1px solid var(--panel-line);
+  }
+  .historyRow:last-child{ border-bottom:none; }
+  .historyRow .hDate{ font-size:12.5px; font-weight:700; }
+  .historyRow .hMeta{ font-size:10.5px; color:var(--text-dim); margin-top:2px; }
+  .historyRow .hScore{
+    font-family:var(--font-display); font-size:15px; font-weight:800; color:var(--accent);
+    text-align:right; flex:none;
+  }
+  .historyRow .hScore .hScoreLbl{ display:block; font-size:9px; color:var(--text-dim); font-weight:600; }
+
   .lbRow{
     display:flex; align-items:center; gap:10px;
     padding:9px 6px; border-bottom:1px solid var(--panel-line);
@@ -1101,6 +1114,7 @@
     <button id="timerModeBtn">⏱️ Contrarreloj: Desactivado</button>
     <button id="multiplayerBtn">👥 Multijugador</button>
     <button id="statsBtn">📊 Estadísticas</button>
+    <button id="historyBtn">📜 Historial de partidas</button>
     <button id="achievementsBtn">🏅 Logros</button>
     <button id="dailyBtn">📅 Desafío diario</button>
     <button id="themeChallengeBtn">🗓️ Retos temáticos</button>
@@ -1183,7 +1197,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón y retos temáticos</b>. Tu clave, los temas favoritos, tus preguntas propias y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón, retos temáticos e historial de partidas</b>. Tu clave, los temas favoritos, tus preguntas propias, monedas y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -1255,6 +1269,15 @@
     <div id="statsSummary" style="display:flex; gap:8px; margin-bottom:14px;"></div>
     <div id="statsList" style="overflow-y:auto; flex:1;"></div>
     <button id="closeStatsBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="historyOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:400px; width:100%; max-height:82vh; display:flex; flex-direction:column;">
+    <h3 style="margin:0 0 4px; font-size:15px;">📜 Historial de partidas</h3>
+    <p style="font-size:11px; color:var(--text-dim); margin:0 0 12px;">Cada sesión que jugaste en modo individual, con su fecha, duración y puntaje.</p>
+    <div id="historyList" style="overflow-y:auto; flex:1;"></div>
+    <button id="closeHistoryBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -2381,6 +2404,59 @@
     Object.values(missedQuestions).forEach(topicMap => { n += Object.keys(topicMap).length; });
     return n;
   }
+
+  // -------- Historial de partidas (solo modo individual) --------
+  // Cada vez que jugás en modo individual queda registrada la sesión: fecha de inicio,
+  // duración, puntaje y precisión. Se actualiza en vivo mientras jugás (no hace falta
+  // "cerrar" la partida para que quede guardada).
+  let matchHistory = [];
+  let currentSessionId = null;
+  let sessionStartTime = 0;
+  let sessionStartQuestions = 0;
+  let sessionStartCorrect = 0;
+
+  async function loadMatchHistory(){
+    const raw = await storageGet('match_history');
+    if(raw){
+      try{ const arr = JSON.parse(raw); if(Array.isArray(arr)) matchHistory = arr; }catch(e){}
+    }
+  }
+  loadMatchHistory();
+
+  async function saveMatchHistory(){
+    if(matchHistory.length > 50) matchHistory = matchHistory.slice(matchHistory.length - 50);
+    await storageSet('match_history', JSON.stringify(matchHistory));
+  }
+
+  function startSession(){
+    currentSessionId = Date.now() + '-' + Math.floor(Math.random()*10000);
+    sessionStartTime = Date.now();
+    sessionStartQuestions = stats.total;
+    sessionStartCorrect = stats.correct;
+  }
+  startSession();
+
+  function updateSessionEntry(){
+    if(multiplayerEnabled || !currentSessionId) return; // el historial es solo de modo individual
+    const questionsThisSession = stats.total - sessionStartQuestions;
+    if(questionsThisSession <= 0) return; // todavía sin actividad real, no guardar
+    const entry = {
+      id: currentSessionId,
+      date: new Date(sessionStartTime).toISOString(),
+      score: score,
+      durationSec: Math.round((Date.now() - sessionStartTime) / 1000),
+      questions: questionsThisSession,
+      correct: stats.correct - sessionStartCorrect,
+    };
+    const idx = matchHistory.findIndex(e => e.id === currentSessionId);
+    if(idx >= 0) matchHistory[idx] = entry; else matchHistory.push(entry);
+    saveMatchHistory();
+  }
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden') updateSessionEntry();
+  });
+  window.addEventListener('beforeunload', updateSessionEntry);
 
   // -------- Monedas y tienda --------
   // Moneda única del dispositivo (no per-jugador): se gana jugando, se gasta en cosméticos.
@@ -4060,6 +4136,7 @@
         mpWarning.style.display = 'block';
         return false;
       }
+      if(!multiplayerEnabled) updateSessionEntry(); // cierra la sesión de historial en solitario antes de pasar a multijugador
       if(multiplayerEnabled) saveCurrentPlayer();
 
       players = entries.map(e => ({ name: e.name, avatar: e.avatar, color: e.color, team: e.team, score: 0, state: freshTopicState(), wildcards: freshWildcards(), streak: 0, stats: freshStats(), achievements: [], missed: freshMissed(), survivalStreak: 0, survivalBest: 0, marathonBest: null }));
@@ -4146,6 +4223,7 @@
       missedQuestions = soloMissed;
       survivalStreak = 0;
       survivalBest = soloSurvivalBest;
+      startSession(); // arranca una sesión de historial nueva al volver a modo individual
       if(typeof renderSurvivalBadge === 'function') renderSurvivalBadge();
       renderWildcardButtons();
       renderScore();
@@ -4483,6 +4561,9 @@
       monthlyProgress = { monthId:null, topicKey:null, score:0 };
       await loadWeeklyProgress();
       await loadMonthlyProgress();
+      await storageDelete('match_history');
+      matchHistory = [];
+      startSession();
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
@@ -4990,6 +5071,49 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     });
     closeStatsBtn.addEventListener('click', ()=>{
       statsOverlay.style.display = 'none';
+    });
+  }
+
+  // ---------------- Historial de partidas ----------------
+  function formatHistoryDuration(sec){
+    if(sec < 60) return sec + 's';
+    const m = Math.floor(sec/60), s = sec%60;
+    return m + ' min' + (s ? ' ' + s + 's' : '');
+  }
+  function formatHistoryDate(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-AR', { day:'numeric', month:'short' }) + ' · ' +
+      d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+  }
+
+  const historyBtn = document.getElementById('historyBtn');
+  const historyOverlay = document.getElementById('historyOverlay');
+  if(historyBtn){
+    historyBtn.addEventListener('click', ()=>{
+      updateSessionEntry(); // reflejar la sesión actual antes de mostrar la lista
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+      const sorted = matchHistory.slice().reverse(); // más reciente primero
+      if(!sorted.length){
+        list.innerHTML = '<p style="font-size:12.5px; color:var(--text-dim); text-align:center; padding:20px 0;">Todavía no hay partidas registradas. ¡Jugá un rato!</p>';
+      } else {
+        sorted.forEach(entry=>{
+          const row = document.createElement('div');
+          row.className = 'historyRow';
+          const acc = entry.questions ? Math.round((entry.correct/entry.questions)*100) : 0;
+          row.innerHTML = `
+            <div>
+              <div class="hDate">${formatHistoryDate(entry.date)}</div>
+              <div class="hMeta">⏱️ ${formatHistoryDuration(entry.durationSec)} · ${entry.questions} preguntas · ${acc}% aciertos</div>
+            </div>
+            <div class="hScore"><span class="hScoreLbl">PUNTOS</span>${entry.score}</div>`;
+          list.appendChild(row);
+        });
+      }
+      historyOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeHistoryBtn').addEventListener('click', ()=>{
+      historyOverlay.style.display = 'none';
     });
   }
 
@@ -5796,6 +5920,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
     saveSoloStats();
     checkAchievements();
+    updateSessionEntry();
 
     // banco de repaso: si fallás, la pregunta queda guardada para repasar después;
     // si la acertás (incluso en modo repaso), sale del banco.
@@ -5989,6 +6114,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     ]},
     { title:'📈 Tu progreso', items:[
       { id:'statsBtn', icon:'📊', label:'Estadísticas' },
+      { id:'historyBtn', icon:'📜', label:'Historial de partidas' },
       { id:'achievementsBtn', icon:'🏅', label:'Logros' },
       { id:'dailyBtn', icon:'📅', label:'Desafío diario', special:'daily' },
       { id:'themeChallengeBtn', icon:'🗓️', label:'Retos temáticos' },
