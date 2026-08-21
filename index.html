@@ -848,6 +848,10 @@
     width:100%; height:100%; border-radius:50%;
     background:#12121a; font-size:12px;
   }
+  .chipBadge{
+    display:inline-block; font-size:11px; margin:0 2px;
+    filter:drop-shadow(0 0 2px rgba(255,209,102,0.7));
+  }
 
   .lbRow{
     display:flex; align-items:center; gap:10px;
@@ -2300,22 +2304,37 @@
 
   // -------- Logros / insignias --------
   const ACHIEVEMENTS_GENERAL = [
-    { id:'streak5', icon:'🔥', name:'En racha', desc:'Conseguí una racha de 5 aciertos seguidos.' },
-    { id:'streak10', icon:'🔥🔥', name:'Imparable', desc:'Conseguí una racha de 10 aciertos seguidos.' },
-    { id:'sniper80', icon:'🎯', name:'Francotirador', desc:'80% de aciertos o más, con al menos 20 preguntas respondidas.' },
-    { id:'scholar100', icon:'📚', name:'Erudito', desc:'Respondiste 100 preguntas en total.' },
-    { id:'champion', icon:'👑', name:'Campeón de la Rueda', desc:'Conseguí el título de Maestro en los ' + TOPICS.length + ' temas.' },
-    { id:'dailyweek', icon:'🌅', name:'Rutina diaria', desc:'Respondé el desafío diario 7 días seguidos.' },
-    { id:'weeklytheme', icon:'📅', name:'Semana temática', desc:'Completá los 7 días del reto semanal temático.' },
-    { id:'monthlytheme', icon:'🗓️', name:'Mes temático', desc:'Alcanzá la meta de puntos del reto mensual temático.' },
+    { id:'streak5', icon:'🔥', name:'En racha', desc:'Conseguí una racha de 5 aciertos seguidos.', rarity:1 },
+    { id:'streak10', icon:'🔥🔥', name:'Imparable', desc:'Conseguí una racha de 10 aciertos seguidos.', rarity:2 },
+    { id:'sniper80', icon:'🎯', name:'Francotirador', desc:'80% de aciertos o más, con al menos 20 preguntas respondidas.', rarity:3 },
+    { id:'scholar100', icon:'📚', name:'Erudito', desc:'Respondiste 100 preguntas en total.', rarity:3 },
+    { id:'champion', icon:'👑', name:'Campeón de la Rueda', desc:'Conseguí el título de Maestro en los ' + TOPICS.length + ' temas.', rarity:5 },
+    { id:'dailyweek', icon:'🌅', name:'Rutina diaria', desc:'Respondé el desafío diario 7 días seguidos.', rarity:3 },
+    { id:'weeklytheme', icon:'📅', name:'Semana temática', desc:'Completá los 7 días del reto semanal temático.', rarity:3 },
+    { id:'monthlytheme', icon:'🗓️', name:'Mes temático', desc:'Alcanzá la meta de puntos del reto mensual temático.', rarity:4 },
   ];
   const ACHIEVEMENTS_TOPIC = TOPICS.map(t => ({
     id: 'master_' + t.key, icon: t.icon, name: 'Maestro de ' + t.name,
-    desc: 'Llegá a nivel ' + MAX_LEVEL + ' en ' + t.name + '.'
+    desc: 'Llegá a nivel ' + MAX_LEVEL + ' en ' + t.name + '.', rarity:2
   }));
   const ALL_ACHIEVEMENTS = [...ACHIEVEMENTS_GENERAL, ...ACHIEVEMENTS_TOPIC];
   const ACHIEVEMENTS_BY_ID = {};
   ALL_ACHIEVEMENTS.forEach(a => ACHIEVEMENTS_BY_ID[a.id] = a);
+
+  // Elige la insignia a mostrar junto al nombre: prioriza la más rara, y ante empate, la más reciente
+  // (el array de logros del jugador está en orden cronológico de desbloqueo).
+  function getBestBadge(achievementsArr){
+    if(!achievementsArr || !achievementsArr.length) return null;
+    let best = null, bestIdx = -1;
+    achievementsArr.forEach((id, idx)=>{
+      const a = ACHIEVEMENTS_BY_ID[id];
+      if(!a) return;
+      if(!best || a.rarity > best.rarity || (a.rarity === best.rarity && idx > bestIdx)){
+        best = a; bestIdx = idx;
+      }
+    });
+    return best;
+  }
 
   let soloAchievements = []; // ids desbloqueados, se persisten entre sesiones
   let achievements = soloAchievements; // apunta a quien tiene el turno
@@ -3709,7 +3728,10 @@
       return;
     }
     turnLabel.style.display = 'inline';
-    turnLabel.textContent = (players[currentPlayerIndex].avatar || '') + ' ' + players[currentPlayerIndex].name + ':';
+    const turnBadge = getBestBadge(players[currentPlayerIndex].achievements);
+    turnLabel.innerHTML = (players[currentPlayerIndex].avatar || '') + ' ' +
+      (turnBadge ? `<span class="chipBadge" title="${turnBadge.name}">${turnBadge.icon}</span>` : '') +
+      players[currentPlayerIndex].name + ':';
     playerChips.style.display = 'flex';
     playerChips.innerHTML = '';
     players.forEach((p, i) => {
@@ -3724,7 +3746,9 @@
       const avatarHtml = p.avatar
         ? `<span class="avatarFrameWrap" style="${currentFrameCss()}"><span class="avatarFrameInner">${p.avatar}</span></span>`
         : '';
-      chip.innerHTML = teamMark + avatarHtml + ' ' + p.name + ': ' + p.score;
+      const badge = getBestBadge(p.achievements);
+      const badgeHtml = badge ? `<span class="chipBadge" title="${badge.name}">${badge.icon}</span>` : '';
+      chip.innerHTML = teamMark + avatarHtml + badgeHtml + ' ' + p.name + ': ' + p.score;
       playerChips.appendChild(chip);
     });
 
