@@ -1158,6 +1158,7 @@
     <button id="myQuestionsBtn">✏️ Mis preguntas</button>
     <button id="survivalModeBtn">💀 Supervivencia</button>
     <button id="marathonModeBtn">🏃 Modo maratón</button>
+    <button id="noWildcardsBtn">🚫 Sin comodines</button>
   </div>
 
   <button id="legendToggleBtn" type="button" style="width:100%; margin-top:20px; display:flex; align-items:center; justify-content:space-between; background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:11px 14px; color:var(--text); font-weight:800; font-size:13px; cursor:pointer; font-family:inherit;">
@@ -1229,7 +1230,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón, retos temáticos e historial de partidas</b>. Tu clave, los temas favoritos, tus preguntas propias, monedas y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón, retos temáticos, historial de partidas y progreso sin comodines</b>. Tu clave, los temas favoritos, tus preguntas propias, monedas y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -2384,6 +2385,7 @@
     { id:'dailyweek', icon:'🌅', name:'Rutina diaria', desc:'Respondé el desafío diario 7 días seguidos.', rarity:3 },
     { id:'weeklytheme', icon:'📅', name:'Semana temática', desc:'Completá los 7 días del reto semanal temático.', rarity:3 },
     { id:'monthlytheme', icon:'🗓️', name:'Mes temático', desc:'Alcanzá la meta de puntos del reto mensual temático.', rarity:4 },
+    { id:'purist', icon:'🚫', name:'Purista', desc:'Respondé 50 preguntas correctamente en modo "sin comodines".', rarity:4 },
   ];
   const ACHIEVEMENTS_TOPIC = TOPICS.map(t => ({
     id: 'master_' + t.key, icon: t.icon, name: 'Maestro de ' + t.name,
@@ -2652,6 +2654,30 @@
     }
   }
   loadMarathonMode();
+
+  // -------- Modo "sin comodines": partida pura, sin 50/50, Pasar, Doble o nada ni Pista --------
+  const NO_WILDCARDS_TARGET = 50; // aciertos acumulados (con el modo activo) para la insignia
+  let noWildcardsEnabled = false;
+  let noWildcardsProgress = 0; // contador acumulado del dispositivo, ya desbloqueado o no
+
+  async function loadNoWildcardsProgress(){
+    const raw = await storageGet('no_wildcards_progress');
+    if(raw) noWildcardsProgress = parseInt(raw, 10) || 0;
+  }
+  loadNoWildcardsProgress();
+  async function saveNoWildcardsProgress(){
+    await storageSet('no_wildcards_progress', String(noWildcardsProgress));
+  }
+
+  async function loadNoWildcardsMode(){
+    const saved = await storageGet('no_wildcards_mode');
+    if(saved === 'on'){
+      noWildcardsEnabled = true;
+      if(typeof updateNoWildcardsBtnLabel === 'function') updateNoWildcardsBtnLabel();
+      if(typeof renderWildcardButtons === 'function') renderWildcardButtons();
+    }
+  }
+  loadNoWildcardsMode();
 
   function formatMarathonTime(totalSeconds){
     const m = Math.floor(totalSeconds / 60);
@@ -4896,6 +4922,9 @@
       await storageDelete('match_history');
       matchHistory = [];
       startSession();
+      await storageDelete('no_wildcards_progress');
+      noWildcardsProgress = 0;
+      if(typeof updateNoWildcardsBtnLabel === 'function') updateNoWildcardsBtnLabel();
 
       if(multiplayerEnabled && players.length){
         players.forEach(p => {
@@ -5784,6 +5813,32 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     nextTurn();
   });
 
+  // ---------------- Modo sin comodines ----------------
+  const noWildcardsBtn = document.getElementById('noWildcardsBtn');
+
+  function updateNoWildcardsBtnLabel(){
+    if(!noWildcardsBtn) return;
+    if(noWildcardsProgress >= NO_WILDCARDS_TARGET){
+      noWildcardsBtn.textContent = noWildcardsEnabled ? '🚫 Sin comodines: ON ✅' : '🚫 Sin comodines ✅';
+    } else {
+      noWildcardsBtn.textContent = noWildcardsEnabled
+        ? '🚫 Sin comodines: ' + noWildcardsProgress + '/' + NO_WILDCARDS_TARGET
+        : '🚫 Sin comodines';
+    }
+    noWildcardsBtn.style.borderColor = noWildcardsEnabled ? 'var(--bad)' : 'var(--panel-line)';
+    noWildcardsBtn.style.color = noWildcardsEnabled ? 'var(--bad)' : 'var(--text-dim)';
+  }
+
+  if(noWildcardsBtn){
+    noWildcardsBtn.addEventListener('click', async ()=>{
+      noWildcardsEnabled = !noWildcardsEnabled;
+      updateNoWildcardsBtnLabel();
+      renderWildcardButtons();
+      await storageSet('no_wildcards_mode', noWildcardsEnabled ? 'on' : 'off');
+    });
+  }
+  updateNoWildcardsBtnLabel();
+
   // ---------------- Mis preguntas (personalizadas) ----------------
   const myQuestionsBtn = document.getElementById('myQuestionsBtn');
   const myQuestionsOverlay = document.getElementById('myQuestionsOverlay');
@@ -5975,6 +6030,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   const hintBox = document.getElementById('hintBox');
 
   function renderWildcardButtons(){
+    const wildcardsRow = document.getElementById('wildcardsRow');
+    if(noWildcardsEnabled){
+      if(wildcardsRow) wildcardsRow.style.display = 'none';
+      return;
+    }
+    if(wildcardsRow) wildcardsRow.style.display = 'grid';
+
     wildcardFiftyBtn.querySelector('.wcCount').textContent = wildcards.fifty;
     wildcardSkipBtn.querySelector('.wcCount').textContent = wildcards.skip;
     wildcardDoubleBtn.querySelector('.wcCount').textContent = wildcards.double;
@@ -5996,6 +6058,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   }
 
   wildcardFiftyBtn.addEventListener('click', ()=>{
+    if(noWildcardsEnabled) return;
     if(wildcards.fifty <= 0 || fiftyFiftyUsedThisQuestion) return;
     const allBtns = Array.from(optionsDiv.querySelectorAll('.option'));
     if(!allBtns.length || allBtns[0].disabled) return; // ya se respondió
@@ -6014,6 +6077,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   });
 
   wildcardSkipBtn.addEventListener('click', ()=>{
+    if(noWildcardsEnabled) return;
     if(wildcards.skip <= 0) return;
     const allBtns = optionsDiv.querySelectorAll('.option');
     if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
@@ -6026,6 +6090,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   });
 
   wildcardDoubleBtn.addEventListener('click', ()=>{
+    if(noWildcardsEnabled) return;
     const allBtns = optionsDiv.querySelectorAll('.option');
     if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
 
@@ -6041,6 +6106,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   });
 
   wildcardHintBtn.addEventListener('click', ()=>{
+    if(noWildcardsEnabled) return;
     if(wildcards.hint <= 0 || hintUsedThisQuestion) return;
     const allBtns = optionsDiv.querySelectorAll('.option');
     if(allBtns.length && allBtns[0].disabled) return; // ya se respondió
@@ -6170,6 +6236,15 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
       const coinsWon = Math.max(1, Math.ceil(lvl / 5)); // 1 a 3 monedas según dificultad
       earnCoins(coinsWon);
+
+      if(noWildcardsEnabled && noWildcardsProgress < NO_WILDCARDS_TARGET){
+        noWildcardsProgress++;
+        saveNoWildcardsProgress();
+        updateNoWildcardsBtnLabel();
+        if(noWildcardsProgress >= NO_WILDCARDS_TARGET){
+          unlockAchievement('purist');
+        }
+      }
 
       let msg = doubleOrNothingActive
         ? '🎲 ¡Correcto, doble o nada pagó! +' + doubledPts + ' puntos'
@@ -6440,6 +6515,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       { id:'reviewModeBtn', icon:'📖', label:'Modo repaso', toggle:true },
       { id:'survivalModeBtn', icon:'💀', label:'Supervivencia', toggle:true },
       { id:'marathonModeBtn', icon:'🏃', label:'Modo maratón', toggle:true },
+      { id:'noWildcardsBtn', icon:'🚫', label:'Sin comodines', toggle:true },
     ]},
     { title:'👥 Multijugador', items:[
       { id:'multiplayerBtn', icon:'👥', label:'Multijugador y torneo' },
