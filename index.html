@@ -1120,6 +1120,7 @@
     <button id="themeChallengeBtn">🗓️ Retos temáticos</button>
     <button id="shareBtn">📤 Compartir</button>
     <button id="leaderboardBtn">🏆 Posiciones</button>
+    <button id="challengeBtn">⚔️ Retar a un amigo</button>
     <button id="a11yBtn">🔤 Tamaño de texto</button>
     <button id="shopBtn">🪙 Tienda</button>
     <button id="reviewModeBtn">📖 Modo repaso</button>
@@ -1278,6 +1279,14 @@
     <p style="font-size:11px; color:var(--text-dim); margin:0 0 12px;">Cada sesión que jugaste en modo individual, con su fecha, duración y puntaje.</p>
     <div id="historyList" style="overflow-y:auto; flex:1;"></div>
     <button id="closeHistoryBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="challengeOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.9); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:60; padding:20px;">
+  <div style="background:var(--panel); border:2px solid var(--accent); border-radius:16px; padding:20px; max-width:390px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
+    <h3 id="challengeTitle" style="margin:0 0 12px; font-size:16px;">⚔️ Retar a un amigo</h3>
+    <div id="challengeBody" style="overflow-y:auto; flex:1;"></div>
+    <button id="closeChallengeBtn" style="margin-top:14px; padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -3287,6 +3296,233 @@
     ctx.arcTo(x,y,x+w,y,r);
     ctx.closePath();
   }
+
+  // -------- Retar a un amigo: link con una pregunta puntual (sin servidor) --------
+  // Todo el estado del reto viaja codificado en el propio link (base64 URL-safe de un
+  // JSON chico), así funciona en un sitio estático sin backend.
+  function b64urlEncode(str){
+    return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function b64urlDecode(str){
+    let s = str.replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length % 4) s += '=';
+    return decodeURIComponent(escape(atob(s)));
+  }
+
+  async function getMyChallengeName(){
+    let name = await storageGet('player_name');
+    if(!name){
+      name = (window.prompt('¿Con qué nombre querés aparecer al retar a alguien?', '') || '').trim().slice(0,20);
+      if(name) await storageSet('player_name', name);
+    }
+    return name || 'Alguien';
+  }
+
+  const challengeOverlay = document.getElementById('challengeOverlay');
+  const challengeTitle = document.getElementById('challengeTitle');
+  const challengeBody = document.getElementById('challengeBody');
+  const challengeBtn = document.getElementById('challengeBtn');
+  let challengeTimerStart = 0;
+
+  function pickRandomChallengeQuestion(){
+    const pool = buildDailyPool();
+    if(!pool.length) return null;
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  function challengeQuestionBlock(topicIcon, topicName, topicColor, image){
+    const wrap = document.createElement('div');
+    const tag = document.createElement('div');
+    tag.className = 'dailyTopicTag';
+    tag.style.background = topicColor;
+    tag.style.color = 'rgba(0,0,0,0.75)';
+    tag.textContent = topicIcon + ' ' + topicName;
+    wrap.appendChild(tag);
+    if(image){
+      const img = document.createElement('div');
+      img.style.cssText = 'font-size:48px; text-align:center; background:#12121a; border:1px solid var(--panel-line); border-radius:10px; padding:12px; margin:10px 0;';
+      img.textContent = image;
+      wrap.appendChild(img);
+    }
+    return wrap;
+  }
+
+  function openChallengeCreate(){
+    challengeOverlay.style.display = 'flex';
+    const picked = pickRandomChallengeQuestion();
+    if(!picked){
+      challengeTitle.textContent = '⚔️ Retar a un amigo';
+      challengeBody.innerHTML = '<p style="font-size:12.5px; color:var(--text-dim);">No hay preguntas disponibles todavía.</p>';
+      return;
+    }
+    challengeTitle.textContent = '⚔️ Tu reto';
+    challengeBody.innerHTML = '';
+
+    const note = document.createElement('p');
+    note.style.cssText = 'font-size:11px; color:var(--text-dim); margin:0 0 10px;';
+    note.textContent = 'Respondé primero para armar el link. Se manda con tu resultado adentro.';
+    challengeBody.appendChild(note);
+    challengeBody.appendChild(challengeQuestionBlock(picked.topic.icon, picked.topic.name, picked.topic.color, picked.q.image));
+
+    const qP = document.createElement('p');
+    qP.style.cssText = 'font-size:15px; font-weight:700; margin:0 0 12px;';
+    qP.textContent = picked.q.q;
+    challengeBody.appendChild(qP);
+
+    const order = picked.q.options.map((opt,idx)=>({opt,idx}));
+    for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+
+    challengeTimerStart = Date.now();
+    order.forEach(({opt, idx})=>{
+      const btn = document.createElement('button');
+      btn.className = 'dOption';
+      btn.textContent = opt;
+      btn.addEventListener('click', async ()=>{
+        const allBtns = challengeBody.querySelectorAll('.dOption');
+        allBtns.forEach(b=>b.disabled = true);
+        const isCorrect = idx === picked.q.correct;
+        allBtns.forEach(b=>{ if(b.textContent === picked.q.options[picked.q.correct]) b.classList.add('correct'); });
+        if(!isCorrect) btn.classList.add('wrong');
+        const timeSec = Math.max(1, Math.round((Date.now()-challengeTimerStart)/1000));
+        if(isCorrect) launchConfetti();
+        const myName = await getMyChallengeName();
+        setTimeout(()=> showChallengeShare(picked, order.map(o=>o.opt), myName, isCorrect, timeSec), 900);
+      });
+      challengeBody.appendChild(btn);
+    });
+  }
+
+  function buildChallengeLink(payload){
+    const b64 = b64urlEncode(JSON.stringify(payload));
+    const url = new URL(location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('challenge', b64);
+    return url.toString();
+  }
+
+  function showChallengeShare(picked, shuffledOptions, myName, isCorrect, timeSec){
+    challengeTitle.textContent = '⚔️ Compartir reto';
+    const payload = {
+      n: myName,
+      ti: picked.topic.icon + ' ' + picked.topic.name,
+      tc: picked.topic.color,
+      q: picked.q.q,
+      o: shuffledOptions,
+      c: shuffledOptions.indexOf(picked.q.options[picked.q.correct]),
+      im: picked.q.image || '',
+      cr: isCorrect,
+      ct: timeSec,
+    };
+    const link = buildChallengeLink(payload);
+
+    challengeBody.innerHTML = `
+      <p style="font-size:14px; font-weight:800; text-align:center; margin:0 0 4px; color:${isCorrect?'var(--good)':'var(--bad)'};">${isCorrect ? '✅ ¡Acertaste!' : '❌ No la sacaste'} en ${timeSec}s</p>
+      <p style="font-size:12px; color:var(--text-dim); text-align:center; margin:0 0 16px;">Mandale este link a tu amigo para que compita con la misma pregunta.</p>
+      <button id="challengeShareBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:12px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer; margin-bottom:8px;">📤 Compartir link</button>
+      <button id="challengeCopyBtn" style="width:100%; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); padding:11px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer;">Copiar link</button>
+      <p id="challengeCopyStatus" style="font-size:11px; color:var(--good); text-align:center; margin:10px 0 0; display:none;">Copiado ✅</p>`;
+
+    document.getElementById('challengeShareBtn').addEventListener('click', async ()=>{
+      const text = '⚔️ ' + myName + ' te retó: "' + picked.q.q + '" — ¿la sacás?';
+      try{
+        if(navigator.share){ await navigator.share({ title:'Reto de Rueda de Preguntas', text, url: link }); return; }
+      }catch(e){ return; }
+      try{
+        await navigator.clipboard.writeText(text + ' ' + link);
+        document.getElementById('challengeCopyStatus').style.display = 'block';
+      }catch(e){}
+    });
+    document.getElementById('challengeCopyBtn').addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(link);
+        const st = document.getElementById('challengeCopyStatus');
+        st.style.display = 'block';
+        setTimeout(()=>{ st.style.display = 'none'; }, 2200);
+      }catch(e){}
+    });
+  }
+
+  function checkIncomingChallenge(){
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('challenge');
+    if(!raw) return;
+    let payload;
+    try{ payload = JSON.parse(b64urlDecode(raw)); }catch(e){ return; }
+    if(!payload || !payload.q || !Array.isArray(payload.o)) return;
+
+    history.replaceState(null, '', location.pathname); // limpia el link para que no se repita al refrescar
+
+    challengeOverlay.style.display = 'flex';
+    challengeTitle.textContent = '⚔️ Reto de ' + (payload.n || 'un amigo');
+    challengeBody.innerHTML = '';
+    challengeBody.appendChild(challengeQuestionBlock(
+      (payload.ti||'').split(' ')[0] || '⚔️',
+      (payload.ti||'').split(' ').slice(1).join(' '),
+      payload.tc || 'var(--accent)',
+      payload.im
+    ));
+
+    const qP = document.createElement('p');
+    qP.style.cssText = 'font-size:15px; font-weight:700; margin:0 0 12px;';
+    qP.textContent = payload.q;
+    challengeBody.appendChild(qP);
+
+    const startTime = Date.now();
+    payload.o.forEach((opt, idx)=>{
+      const btn = document.createElement('button');
+      btn.className = 'dOption';
+      btn.textContent = opt;
+      btn.addEventListener('click', ()=>{
+        const allBtns = challengeBody.querySelectorAll('.dOption');
+        allBtns.forEach(b=>b.disabled = true);
+        const isCorrect = idx === payload.c;
+        allBtns.forEach(b=>{ if(b.textContent === payload.o[payload.c]) b.classList.add('correct'); });
+        if(!isCorrect) btn.classList.add('wrong');
+        const mySec = Math.max(1, Math.round((Date.now()-startTime)/1000));
+        setTimeout(()=> showChallengeComparison(payload, isCorrect, mySec), 900);
+      });
+      challengeBody.appendChild(btn);
+    });
+  }
+
+  async function showChallengeComparison(payload, myCorrect, mySec){
+    challengeTitle.textContent = '⚔️ Resultado del reto';
+    const myName = await getMyChallengeName();
+
+    let verdict;
+    if(myCorrect && !payload.cr) verdict = '🏆 ¡Le ganaste a ' + payload.n + '!';
+    else if(!myCorrect && payload.cr) verdict = '😅 ' + payload.n + ' te ganó esta vez.';
+    else if(myCorrect && payload.cr) verdict = mySec < payload.ct ? '🏆 Los dos acertaron, ¡pero vos fuiste más rápido!' : (mySec > payload.ct ? '🤝 Los dos acertaron — ' + payload.n + ' fue más rápido.' : '🤝 ¡Empate total!');
+    else verdict = '🤝 Ninguno la sacó esta vez.';
+
+    challengeBody.innerHTML = `
+      <div style="display:flex; justify-content:space-around; margin-bottom:14px;">
+        <div style="text-align:center;">
+          <div style="font-size:12px; color:var(--text-dim);">Vos</div>
+          <div style="font-size:26px;">${myCorrect?'✅':'❌'}</div>
+          <div style="font-size:11px; color:var(--text-dim);">${mySec}s</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:12px; color:var(--text-dim);">${payload.n}</div>
+          <div style="font-size:26px;">${payload.cr?'✅':'❌'}</div>
+          <div style="font-size:11px; color:var(--text-dim);">${payload.ct}s</div>
+        </div>
+      </div>
+      <p style="text-align:center; font-weight:800; margin:0 0 16px;">${verdict}</p>
+      <button id="challengeBackBtn" style="width:100%; background:var(--accent); color:#1a1608; border:none; padding:12px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">⚔️ Retar de vuelta</button>`;
+
+    document.getElementById('challengeBackBtn').addEventListener('click', openChallengeCreate);
+    if(myCorrect) launchConfetti();
+  }
+
+  if(challengeBtn){
+    challengeBtn.addEventListener('click', openChallengeCreate);
+    document.getElementById('closeChallengeBtn').addEventListener('click', ()=>{
+      challengeOverlay.style.display = 'none';
+    });
+  }
+  checkIncomingChallenge(); // por si la app se abrió desde un link de reto
 
   function currentPlayerLabel(){
     if(!(multiplayerEnabled && players.length)) return 'Modo individual';
@@ -6122,6 +6358,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     { title:'🌐 Compartir', items:[
       { id:'shareBtn', icon:'📤', label:'Compartir puntaje' },
       { id:'leaderboardBtn', icon:'🏆', label:'Tabla de posiciones' },
+      { id:'challengeBtn', icon:'⚔️', label:'Retar a un amigo' },
     ]},
     { title:'🎨 Personalizar', items:[
       { id:'myQuestionsBtn', icon:'✏️', label:'Mis preguntas' },

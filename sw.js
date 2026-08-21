@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rueda-preguntas-v35';
+const CACHE_NAME = 'rueda-preguntas-v36';
 const ASSETS = [
   './',
   './index.html',
