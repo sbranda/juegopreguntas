@@ -1040,6 +1040,9 @@
   .moreMenuRow .mmStatus{ font-size:10.5px; color:var(--text-dim); font-weight:600; flex:none; max-width:40%; text-align:right; }
   .moreMenuRow .mmChevron{ color:var(--text-dim); flex:none; }
   .moreMenuRow.pending{ border-color:var(--accent); background:rgba(255,209,102,0.08); }
+  .moreMenuRow.active{ border-color:var(--good); background:rgba(79,214,140,0.1); }
+  .moreMenuRow.active .mmIcon{ filter:drop-shadow(0 0 4px rgba(79,214,140,0.8)); }
+  .moreMenuRow.active .mmStatus{ color:var(--good); font-weight:800; }
 
   .welcomeStep{
     display:flex; align-items:flex-start; gap:12px;
@@ -6578,6 +6581,16 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   }
 
   // -------- Menú "Más opciones": agrupa todos los botones sueltos por categoría --------
+  // Mapa compartido: para cada botón interruptor, cómo saber si está prendido ahora mismo
+  // (se usa tanto para resaltar la fila en el menú como para el aria-pressed de accesibilidad)
+  const TOGGLE_STATE_GETTERS = {
+    timerModeBtn: ()=> typeof timerModeEnabled!=='undefined' && timerModeEnabled,
+    reviewModeBtn: ()=> typeof reviewModeEnabled!=='undefined' && reviewModeEnabled,
+    survivalModeBtn: ()=> typeof survivalModeEnabled!=='undefined' && survivalModeEnabled,
+    marathonModeBtn: ()=> typeof marathonModeEnabled!=='undefined' && marathonModeEnabled,
+    noWildcardsBtn: ()=> typeof noWildcardsEnabled!=='undefined' && noWildcardsEnabled,
+  };
+
   const MORE_MENU_SECTIONS = [
     { title:'🎮 Modos de juego', items:[
       { id:'chooseTopicsBtn', icon:'🎯', label:'Elegir mis temas' },
@@ -6648,9 +6661,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         const srcBtn = document.getElementById(item.id);
         const row = document.createElement('button');
         row.type = 'button';
-        row.className = 'moreMenuRow' + (item.special === 'daily' && pending ? ' pending' : '');
+        const isOn = item.toggle && TOGGLE_STATE_GETTERS[item.id] && TOGGLE_STATE_GETTERS[item.id]();
+        row.className = 'moreMenuRow' +
+          (item.special === 'daily' && pending ? ' pending' : '') +
+          (isOn ? ' active' : '');
         const statusText = (item.toggle && srcBtn) ? srcBtn.textContent.replace(item.icon,'').replace(/^[:\s]+/,'').trim() : '';
-        const rightMark = item.special === 'daily' && pending ? '¡Nuevo hoy!' : statusText;
+        const rightMark = item.special === 'daily' && pending ? '¡Nuevo hoy!' : (isOn ? '✅ ' + statusText : statusText);
         row.innerHTML = `<span class="mmIcon">${item.icon}</span><span class="mmLabel">${item.label}</span><span class="mmStatus">${rightMark}</span><span class="mmChevron">›</span>`;
         row.addEventListener('click', async ()=>{
           if(item.action === 'welcome'){
@@ -6827,18 +6843,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     // Los botones interruptor (Contrarreloj, Modo repaso, Supervivencia, Maratón, Sin
     // comodines) anuncian su estado ON/OFF con aria-pressed, no solo con el color del borde.
-    const toggleBtnIds = ['timerModeBtn','reviewModeBtn','survivalModeBtn','marathonModeBtn','noWildcardsBtn'];
-    const toggleStateGetters = {
-      timerModeBtn: ()=>typeof timerModeEnabled!=='undefined' && timerModeEnabled,
-      reviewModeBtn: ()=>typeof reviewModeEnabled!=='undefined' && reviewModeEnabled,
-      survivalModeBtn: ()=>typeof survivalModeEnabled!=='undefined' && survivalModeEnabled,
-      marathonModeBtn: ()=>typeof marathonModeEnabled!=='undefined' && marathonModeEnabled,
-      noWildcardsBtn: ()=>typeof noWildcardsEnabled!=='undefined' && noWildcardsEnabled,
-    };
+    // Reutiliza TOGGLE_STATE_GETTERS, el mismo mapa que resalta las filas del menú.
+    const toggleBtnIds = Object.keys(TOGGLE_STATE_GETTERS);
     function syncTogglePressedStates(){
       toggleBtnIds.forEach(id=>{
         const btn = document.getElementById(id);
-        if(btn) btn.setAttribute('aria-pressed', String(!!toggleStateGetters[id]()));
+        if(btn) btn.setAttribute('aria-pressed', String(!!TOGGLE_STATE_GETTERS[id]()));
       });
     }
     syncTogglePressedStates();
