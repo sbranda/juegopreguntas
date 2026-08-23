@@ -172,6 +172,24 @@
     font-size:0.78125rem; color:var(--text-dim); margin:4px 0 0;
     font-weight:700; letter-spacing:0.03em;
   }
+  #installBanner{
+    width:100%; max-width:400px;
+    display:flex; align-items:center; gap:10px;
+    background:linear-gradient(135deg, #2a1a3d, #1a1428);
+    border:1.5px solid var(--accent);
+    border-radius:12px; padding:10px 12px; margin:10px 0;
+  }
+  #installBannerText{ flex:1; font-size:12px; color:var(--text); line-height:1.4; }
+  #installBannerBtns{ display:flex; align-items:center; gap:6px; flex:none; }
+  #installNowBtn{
+    background:var(--accent); color:#1a1608; border:none;
+    padding:9px 16px; border-radius:20px; font-weight:800; font-size:12.5px; cursor:pointer;
+  }
+  #installDismissBtn{
+    background:transparent; border:none; color:var(--text-dim);
+    font-size:16px; cursor:pointer; padding:4px 6px;
+  }
+
   #score{
     display:flex; align-items:center; gap:7px;
     font-family: var(--font-display);
@@ -1130,6 +1148,14 @@
     <h1>Rueda de <span>Preguntas</span></h1>
     <p class="subtitle">✨ Gira, responde y sube de nivel en cada tema ✨</p>
   </header>
+
+  <div id="installBanner" style="display:none;">
+    <span id="installBannerText">📲 Instalá esta app en tu celular para jugar sin abrir el navegador</span>
+    <div id="installBannerBtns">
+      <button id="installNowBtn" type="button">Instalar</button>
+      <button id="installDismissBtn" type="button" aria-label="Cerrar aviso de instalación">✕</button>
+    </div>
+  </div>
 
   <div id="score">🏆 <span id="turnLabel" style="display:none;"></span><span id="scoreVal">0</span> puntos</div>
   <div id="coinsBadge">🪙 <span id="coinsVal">0</span></div>
@@ -6723,8 +6749,8 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   (function hideSplashScreen(){
     const splashEl = document.getElementById('splashScreen');
     if(!splashEl) return;
-    const MIN_MS = 900;
-    const MAX_MS = 3000;
+    const MIN_MS = 2000;
+    const MAX_MS = 4500;
     const start = performance.now();
     let done = false;
 
@@ -6745,6 +6771,44 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       reallyHide();
     }
     setTimeout(reallyHide, MAX_MS); // tope máximo por las dudas
+  })();
+
+  // -------- Instalar como app: banner con botón directo --------
+  // Chrome/Android dispara "beforeinstallprompt" cuando el sitio cumple los requisitos
+  // de instalación y todavía no está instalado. Lo guardamos para poder mostrar nuestro
+  // propio botón "Instalar" en vez de depender de que aparezca el aviso nativo del navegador.
+  (function setupInstallBanner(){
+    let deferredInstallPrompt = null;
+    const banner = document.getElementById('installBanner');
+    const installNowBtn = document.getElementById('installNowBtn');
+    const installDismissBtn = document.getElementById('installDismissBtn');
+    if(!banner) return;
+
+    window.addEventListener('beforeinstallprompt', async (e)=>{
+      e.preventDefault();
+      const dismissed = await storageGet('install_banner_dismissed');
+      if(dismissed === 'yes') return; // ya lo cerró antes, no insistir
+      deferredInstallPrompt = e;
+      banner.style.display = 'flex';
+    });
+
+    installNowBtn.addEventListener('click', async ()=>{
+      if(!deferredInstallPrompt) return;
+      banner.style.display = 'none';
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+    });
+
+    installDismissBtn.addEventListener('click', async ()=>{
+      banner.style.display = 'none';
+      await storageSet('install_banner_dismissed', 'yes');
+    });
+
+    window.addEventListener('appinstalled', ()=>{
+      banner.style.display = 'none';
+      deferredInstallPrompt = null;
+    });
   })();
 
   // -------- Navegación completa por teclado --------
