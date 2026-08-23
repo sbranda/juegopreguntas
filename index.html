@@ -1186,6 +1186,10 @@
     <h3>Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
     <div id="bankBarTrack"><div id="bankBarFill"></div></div>
     <div id="genStatus"></div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <label for="blockSizeInput" style="font-size:11px; color:var(--text-dim); flex:1;">Preguntas por bloque (por pedido a la IA)</label>
+      <input id="blockSizeInput" type="number" min="1" max="20" value="6" style="width:56px; padding:6px 8px; border-radius:7px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px; text-align:center;">
+    </div>
     <div style="display:flex; gap:8px;">
       <button id="genBtn" style="flex:1;">Generar más preguntas (IA)</button>
       <button id="settingsBtn" title="Configurar clave de API" style="width:44px; flex:none; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:16px;">⚙️</button>
@@ -5066,7 +5070,22 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   const genBtn = document.getElementById('genBtn');
   const genStatus = document.getElementById('genStatus');
+  const blockSizeInput = document.getElementById('blockSizeInput');
   let stopRequested = false;
+
+  (async function loadBlockSize(){
+    const saved = await storageGet('block_size');
+    if(saved && blockSizeInput) blockSizeInput.value = Math.min(20, Math.max(1, parseInt(saved,10) || 6));
+  })();
+  if(blockSizeInput){
+    blockSizeInput.addEventListener('change', async ()=>{
+      let v = parseInt(blockSizeInput.value, 10);
+      if(!v || v < 1) v = 1;
+      if(v > 20) v = 20; // tope: pedidos muy grandes tardan más y fallan más seguido
+      blockSizeInput.value = v;
+      await storageSet('block_size', String(v));
+    });
+  }
 
   genBtn.addEventListener('click', ()=>{
     if(generating){
@@ -5083,6 +5102,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     generating = true;
     genBtn.textContent = 'Detener';
     genBtn.classList.add('stop');
+    if(blockSizeInput) blockSizeInput.disabled = true;
     let consecutiveFailures = 0;
     let abortedByError = false;
 
@@ -5092,7 +5112,8 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
         if(stopRequested) break outer;
         let pool = QUESTIONS[topic.key][level];
         while(pool.length < TARGET_PER_BUCKET && !stopRequested){
-          const need = Math.min(6, TARGET_PER_BUCKET - pool.length);
+          const blockSize = Math.min(20, Math.max(1, parseInt(blockSizeInput && blockSizeInput.value, 10) || 6));
+          const need = Math.min(blockSize, TARGET_PER_BUCKET - pool.length);
           genStatus.textContent = `Generando ${topic.icon} ${topic.name} · nivel ${level} (${pool.length}/${TARGET_PER_BUCKET})…`;
           try{
             const existingTexts = pool.map(q=>q.q);
@@ -5159,6 +5180,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     genBtn.disabled = false;
     genBtn.textContent = 'Generar más preguntas (IA)';
     genBtn.classList.remove('stop');
+    if(blockSizeInput) blockSizeInput.disabled = false;
     if(!hadError){
       genStatus.textContent = TOTAL_QUESTIONS >= TARGET_TOTAL
         ? `Listo — ${TOTAL_QUESTIONS} preguntas en el banco.`
