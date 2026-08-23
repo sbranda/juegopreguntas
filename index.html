@@ -4957,7 +4957,6 @@
       // estadísticas y logros: reiniciar el objeto en solitario en el lugar (misma referencia)
       // para que "stats"/"achievements" (que pueden estar apuntando a soloStats/soloAchievements)
       // queden reflejados sin reasignar variables const.
-      const zeroed = freshStats();
       soloStats.correct = 0; soloStats.total = 0; soloStats.bestStreak = 0;
       TOPICS.forEach(t => soloStats.perTopic[t.key] = { correct:0, total:0 });
       soloAchievements.length = 0;
@@ -4998,6 +4997,10 @@
           p.stats = freshStats(); p.achievements = []; p.missed = freshMissed();
           p.survivalStreak = 0; p.survivalBest = 0; p.marathonBest = null;
         });
+        // el jugador con el turno tiene variables "en vivo" (stats/achievements/missedQuestions/
+        // survivalBest/marathonBest) que apuntaban a sus objetos VIEJOS; sin este resync quedarían
+        // desactualizadas aunque el objeto del jugador ya esté reseteado.
+        loadCurrentPlayer();
       }
 
       renderScore();
@@ -5007,6 +5010,9 @@
       if(typeof updateReviewBtnLabel==='function') updateReviewBtnLabel();
       if(typeof renderSurvivalBadge==='function') renderSurvivalBadge();
       if(typeof updateSurvivalBtnLabel==='function') updateSurvivalBtnLabel();
+      if(typeof renderMarathonBadge==='function') renderMarathonBadge();
+      if(typeof updateMarathonBtnLabel==='function') updateMarathonBtnLabel();
+      if(typeof updateMoreMenuBadge==='function') updateMoreMenuBadge();
       renderTurnUI();
       renderWildcardButtons();
       updateBankUI();
