@@ -1296,7 +1296,7 @@
     <div style="border-top:1px solid var(--panel-line); margin-top:18px; padding-top:16px;">
       <h3 style="margin:0 0 6px; font-size:14px; color:var(--bad);">Reiniciar todo</h3>
       <p style="font-size:11.5px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;">
-        Borra tu puntaje, nivel por tema, preguntas generadas por IA, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón, retos temáticos, historial de partidas y progreso sin comodines</b>. Tu clave, los temas favoritos, tus preguntas propias, monedas y la tabla de posiciones compartida no se tocan.
+        Borra tu puntaje y nivel por tema, <b>estadísticas, logros, desafío diario, banco de repaso, récord de supervivencia, récord de maratón, retos temáticos, historial de partidas y progreso sin comodines</b>. Tu clave, los temas favoritos, tus preguntas propias, las preguntas generadas por IA, monedas y la tabla de posiciones compartida no se tocan.
       </p>
       <button id="resetAllBtn" style="width:100%; background:transparent; border:1.5px solid var(--bad); color:var(--bad); padding:11px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer;">Reiniciar todo</button>
       <p id="resetConfirmText" style="font-size:11.5px; color:var(--bad); margin:10px 0 0; display:none;">¿Seguro? Esto no se puede deshacer. Tocá de nuevo para confirmar.</p>
@@ -4998,14 +4998,6 @@
           p.stats = freshStats(); p.achievements = []; p.missed = freshMissed();
           p.survivalStreak = 0; p.survivalBest = 0; p.marathonBest = null;
         });
-      }
-
-      for(const topic of TOPICS){
-        for(let level=1; level<=MAX_LEVEL; level++){
-          const seedLen = SEED_COUNTS[topic.key+'-'+level] || 0;
-          QUESTIONS[topic.key][level] = QUESTIONS[topic.key][level].slice(0, seedLen);
-          await storageDelete(`extra:${topic.key}:${level}`);
-        }
       }
 
       renderScore();
