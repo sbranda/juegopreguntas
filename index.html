@@ -81,22 +81,26 @@
   }
   #splashScreen.hide{ opacity:0; pointer-events:none; }
   #splashWheelIcon{
-    width:92px; height:92px; border-radius:50%;
-    background:conic-gradient(#b30317,#d20200,#ea581c,#e9ab34,#b71daf,#e5013c,#b31470,#eea602,#2bab34,#6ac720,#eadd02,#b30317);
-    border:4px solid #e9e6de;
+    width:120px; height:120px; border-radius:28px;
+    object-fit:cover;
     box-shadow:0 12px 32px rgba(0,0,0,0.55);
-    animation: splashSpin 2.6s linear infinite;
+    animation: splashPop 0.7s cubic-bezier(.2,1.4,.4,1);
   }
-  @keyframes splashSpin{ to{ transform:rotate(360deg); } }
+  @keyframes splashPop{
+    0%{ transform:scale(0.7); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
   #splashTitle{
     font-family:'Baloo 2','Nunito',sans-serif;
-    font-size:24px; font-weight:800; color:#fbf6ea; margin:0; text-align:center;
-  }
-  #splashTitle span{
+    font-size:34px; font-weight:800; margin:0; text-align:center;
     background:linear-gradient(90deg,#ff5d6c,#ff9f1c,#ffd166,#6ac720,#b71daf);
     background-size:200% auto;
     -webkit-background-clip:text; background-clip:text; color:transparent;
     animation: splashShimmer 3s linear infinite;
+  }
+  .splashSub{
+    display:block; font-size:14px; font-weight:700; color:#c9c3d6;
+    -webkit-text-fill-color:#c9c3d6; margin-top:4px;
   }
   @keyframes splashShimmer{ to{ background-position:200% center; } }
   #splashDots{ display:flex; gap:7px; }
@@ -112,7 +116,7 @@
   }
   @media (prefers-reduced-motion: reduce){
     #splashWheelIcon{ animation:none; }
-    #splashTitle span{ animation:none; background:none; -webkit-text-fill-color:initial; color:#ffd166; }
+    #splashTitle{ animation:none; background:none; -webkit-text-fill-color:#ffd166; color:#ffd166; }
     #splashDots span{ animation:none; opacity:0.7; }
   }
   html,body{
@@ -1108,8 +1112,8 @@
 </head>
 <body>
 <div id="splashScreen">
-  <div id="splashWheelIcon"></div>
-  <h1 id="splashTitle">Rueda de <span>Preguntas</span></h1>
+  <img id="splashWheelIcon" src="icon-512.png" alt="">
+  <h1 id="splashTitle">Trivia<span class="splashSub">Rueda de Preguntas</span></h1>
   <div id="splashDots"><span></span><span></span><span></span></div>
 </div>
 <a href="#spinBtn" class="skipLink">Saltar directo al botón de girar la rueda</a>
