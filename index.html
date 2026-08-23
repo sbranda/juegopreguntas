@@ -4759,7 +4759,7 @@
       keyStatus.textContent = 'Clave guardada en este dispositivo. ✅';
       apiKeyInput.value = key;
     } else {
-      keyStatus.textContent = 'Sin clave guardada todavía.';
+      keyStatus.textContent = 'Usando la clave por defecto de la app. Podés poner la tuya propia si preferís.';
     }
   }
 
@@ -5011,6 +5011,12 @@
   }
 
   // -------- Generación de preguntas nuevas: Claude (dentro de Claude.ai) o Gemini (PWA independiente) --------
+  // Clave de Gemini por defecto (respaldo): se usa solo si el dispositivo no tiene una
+  // propia guardada. Aviso de seguridad: como este sitio es público, cualquiera que vea
+  // el código fuente puede copiar esta clave. Restringila en Google Cloud Console /
+  // AI Studio (restricción por dominio/referrer) para que solo funcione desde tu sitio.
+  const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6JlAYsLo7vL4e7mtyo3wKLLLgXRrKVMFRAtLAtZ8FkM_g';
+
   async function callClaudeForQuestions(topicName, level, count, existingTexts){
     const prompt = `Genera ${count} preguntas de trivia en español sobre el tema "${topicName}", de dificultad nivel ${level} de ${MAX_LEVEL} (1 = muy fácil, ${MAX_LEVEL} = muy difícil, tipo experto). La dificultad debe subir de forma gradual y perceptible a medida que el nivel es más alto.
 Cada pregunta debe tener 4 opciones de respuesta, solo una correcta, y una explicación breve (máximo 20 palabras) de por qué esa opción es la correcta.
@@ -5041,7 +5047,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       rawText = (data.content || []).map(b => b.text || '').join('\n');
     } else {
       // PWA independiente: llamada directa a la API de Gemini (Google AI Studio) con la clave del usuario.
-      const apiKey = await storageGet('gemini_api_key');
+      const apiKey = (await storageGet('gemini_api_key')) || DEFAULT_GEMINI_API_KEY;
       if(!apiKey){
         const err = new Error('Falta configurar tu clave de API de Gemini.');
         err.code = 'NO_API_KEY';
