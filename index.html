@@ -1010,7 +1010,14 @@
     width:10px; height:10px; border-radius:3px; display:inline-block;
   }
 
-  #moreMenuBtn{ position:relative; }
+  #moreMenuBtn{
+    position:fixed; top:16px; right:16px; z-index:35;
+    width:46px; height:46px; border-radius:50%;
+    background:var(--panel); border:1.5px solid var(--panel-line); color:var(--text);
+    font-size:20px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  }
   .mmBadgeDot{
     position:absolute; top:-3px; right:-3px;
     width:11px; height:11px; border-radius:50%;
@@ -1152,7 +1159,6 @@
   <div id="wheelResultLabel" style="display:none;" aria-live="polite"></div>
 
   <button id="spinBtn">Girar la rueda</button>
-  <button id="moreMenuBtn" style="margin-top:10px; background:var(--panel); border:1.5px solid var(--panel-line); color:var(--text); padding:10px 22px; border-radius:20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:7px;">☰ Más opciones</button>
 
   <div style="display:none;">
     <button id="chooseTopicsBtn">🎯 Elegir mis temas</button>
@@ -1174,6 +1180,7 @@
     <button id="survivalModeBtn">💀 Supervivencia</button>
     <button id="marathonModeBtn">🏃 Modo maratón</button>
     <button id="noWildcardsBtn">🚫 Sin comodines</button>
+    <button id="bankBtn">🧠 Banco de preguntas</button>
   </div>
 
   <button id="legendToggleBtn" type="button" style="width:100%; margin-top:20px; display:flex; align-items:center; justify-content:space-between; background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:11px 14px; color:var(--text); font-weight:800; font-size:13px; cursor:pointer; font-family:inherit;">
@@ -1181,19 +1188,25 @@
     <span id="legendChevron">▸</span>
   </button>
   <div id="legendGrid" style="display:none; margin-top:9px;"></div>
+</div>
 
-  <div id="bankPanel">
-    <h3>Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
+<button id="moreMenuBtn" aria-label="Más opciones">☰</button>
+
+<div id="bankOverlay" style="position:fixed; inset:0; background:rgba(8,8,14,0.85); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;">
+  <div style="background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; padding:20px; max-width:390px; width:100%; max-height:85vh; display:flex; flex-direction:column; overflow-y:auto;">
+    <h3 style="margin:0 0 4px; font-size:15px;">🧠 Banco de preguntas <span id="bankCountLabel">90 / 500</span></h3>
+    <p style="font-size:11px; color:var(--text-dim); margin:0 0 10px;">Cuantas más preguntas tenga cada tema, menos se repiten.</p>
     <div id="bankBarTrack"><div id="bankBarFill"></div></div>
     <div id="genStatus"></div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+    <div style="display:flex; align-items:center; gap:8px; margin:10px 0 8px;">
       <label for="blockSizeInput" style="font-size:11px; color:var(--text-dim); flex:1;">Preguntas por bloque (por pedido a la IA)</label>
       <input id="blockSizeInput" type="number" min="1" max="20" value="6" style="width:56px; padding:6px 8px; border-radius:7px; border:1.5px solid var(--panel-line); background:#12121a; color:var(--text); font-size:13px; text-align:center;">
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
       <button id="genBtn" style="flex:1;">Generar más preguntas (IA)</button>
       <button id="settingsBtn" title="Configurar clave de API" style="width:44px; flex:none; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:16px;">⚙️</button>
     </div>
+    <button id="closeBankBtn" style="padding:11px; background:transparent; border:1.5px solid var(--panel-line); color:var(--text-dim); border-radius:9px; cursor:pointer; font-size:13px;">Cerrar</button>
   </div>
 </div>
 
@@ -5068,6 +5081,18 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     return parsed.filter(q => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length === 4 && Number.isInteger(q.correct));
   }
 
+  const bankBtn = document.getElementById('bankBtn');
+  const bankOverlay = document.getElementById('bankOverlay');
+  if(bankBtn){
+    bankBtn.addEventListener('click', ()=>{
+      updateBankUI();
+      bankOverlay.style.display = 'flex';
+    });
+    document.getElementById('closeBankBtn').addEventListener('click', ()=>{
+      bankOverlay.style.display = 'none';
+    });
+  }
+
   const genBtn = document.getElementById('genBtn');
   const genStatus = document.getElementById('genStatus');
   const blockSizeInput = document.getElementById('blockSizeInput');
@@ -6580,6 +6605,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     ]},
     { title:'🎨 Personalizar', items:[
       { id:'myQuestionsBtn', icon:'✏️', label:'Mis preguntas' },
+      { id:'bankBtn', icon:'🧠', label:'Banco de preguntas (IA)' },
       { id:'a11yBtn', icon:'🔤', label:'Tamaño de texto' },
       { id:'shopBtn', icon:'🪙', label:'Tienda' },
       { id:null, icon:'❓', label:'Cómo se juega', action:'welcome' },
