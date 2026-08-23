@@ -1,6 +1,6 @@
 {
   "name": "Rueda de Preguntas",
-  "short_name": "Rueda",
+  "short_name": "Trivia",
   "description": "Juego de trivia por temas con niveles de dificultad progresivos.",
   "start_url": "./index.html",
   "scope": "./",
