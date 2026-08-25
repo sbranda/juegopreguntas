@@ -5155,14 +5155,18 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     genBtn.textContent = 'Detener';
     genBtn.classList.add('stop');
     if(blockSizeInput) blockSizeInput.disabled = true;
-    let consecutiveFailures = 0;
+    let consecutiveFailures = 0;     // reintentos dentro del bloque actual
+    let consecutiveBucketSkips = 0;  // bloques salteados seguidos por saturación (para detectar caída total)
+    let skippedCount = 0;            // total de bloques salteados en esta corrida
     let abortedByError = false;
+    let stoppedBySaturation = false;
 
     outer:
     for(const topic of TOPICS){
       for(let level=1; level<=MAX_LEVEL; level++){
         if(stopRequested) break outer;
         let pool = QUESTIONS[topic.key][level];
+        consecutiveFailures = 0;
         while(pool.length < TARGET_PER_BUCKET && !stopRequested){
           const blockSize = Math.min(20, Math.max(1, parseInt(blockSizeInput && blockSizeInput.value, 10) || 6));
           const need = Math.min(blockSize, TARGET_PER_BUCKET - pool.length);
@@ -5171,6 +5175,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
             const existingTexts = pool.map(q=>q.q);
             const newQs = await callClaudeForQuestions(topic.name, level, need, existingTexts);
             consecutiveFailures = 0;
+            consecutiveBucketSkips = 0; // un pedido exitoso confirma que Gemini volvió a responder
             const seen = new Set(pool.map(q=>q.q));
             const uniqueNew = newQs.filter(q=>{
               if(seen.has(q.q)) return false;
@@ -5201,15 +5206,27 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
             const maxRetries = isTransient ? 4 : 2;
 
             if(consecutiveFailures >= maxRetries){
-              let reason;
               if(isAuthError){
-                reason = 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.';
-              } else if(isTransient){
-                reason = 'Gemini está saturado ahora mismo (pasa seguido en las horas pico, sobre todo en el nivel gratis). Ya tenés ' + TOTAL_QUESTIONS + ' preguntas guardadas — probá tocar "Generar" de nuevo en un rato.';
-              } else {
-                reason = 'Error: ' + (e.message ? e.message.slice(0,180) : 'desconocido');
+                genStatus.textContent = 'Tu clave de Gemini no es válida o no tiene permisos. Revísala en ⚙️.';
+                stopRequested = true;
+                abortedByError = true;
+                break outer;
               }
-              genStatus.textContent = reason;
+              if(isTransient){
+                // Este bloque en particular no responde: lo salteamos y seguimos con el
+                // siguiente en vez de tirar toda la corrida por la borda. Solo si esto se
+                // repite muchas veces seguidas asumimos que Gemini está caído en general.
+                skippedCount++;
+                consecutiveBucketSkips++;
+                if(consecutiveBucketSkips >= 5){
+                  genStatus.textContent = 'Gemini está saturado en general ahora mismo (pasa seguido en horas pico, sobre todo en el nivel gratis). Ya tenés ' + TOTAL_QUESTIONS + ' preguntas guardadas — probá tocar "Generar" de nuevo en un rato.';
+                  stopRequested = true;
+                  stoppedBySaturation = true;
+                  break outer;
+                }
+                break; // sale del while de este bloque, sigue con el próximo nivel/tema
+              }
+              genStatus.textContent = 'Error: ' + (e.message ? e.message.slice(0,180) : 'desconocido');
               stopRequested = true;
               abortedByError = true;
               break outer;
@@ -5226,7 +5243,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
 
     generating = false;
-    const hadError = abortedByError;
+    const hadError = abortedByError || stoppedBySaturation;
     abortedByError = false;
     stopRequested = false;
     genBtn.disabled = false;
@@ -5234,9 +5251,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     genBtn.classList.remove('stop');
     if(blockSizeInput) blockSizeInput.disabled = false;
     if(!hadError){
-      genStatus.textContent = TOTAL_QUESTIONS >= TARGET_TOTAL
-        ? `Listo — ${TOTAL_QUESTIONS} preguntas en el banco.`
-        : `Pausado en ${TOTAL_QUESTIONS} preguntas. Toca de nuevo para seguir generando.`;
+      if(TOTAL_QUESTIONS >= TARGET_TOTAL){
+        genStatus.textContent = `Listo — ${TOTAL_QUESTIONS} preguntas en el banco.`;
+      } else if(skippedCount > 0){
+        genStatus.textContent = `Pausado en ${TOTAL_QUESTIONS} preguntas (se saltearon ${skippedCount} bloques saturados). Toca de nuevo para reintentarlos.`;
+      } else {
+        genStatus.textContent = `Pausado en ${TOTAL_QUESTIONS} preguntas. Toca de nuevo para seguir generando.`;
+      }
     }
   }
 
