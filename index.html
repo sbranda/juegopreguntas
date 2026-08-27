@@ -5261,6 +5261,67 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
   }
 
+  // -------- Generación pasiva en segundo plano --------
+  // Cada vez que se abre la app (como mucho una vez por día), pide unas pocas preguntas
+  // nuevas calladita, sin barra de progreso ni avisos — así el banco se va llenando solo
+  // con el uso normal, sin depender de que alguien se siente a tocar "Generar" a propósito.
+  // No compite con una generación manual en curso, y cualquier error (incluida la
+  // saturación de Gemini) se ignora en silencio: si falla, simplemente lo vuelve a
+  // intentar al día siguiente.
+  const PASSIVE_GEN_COUNT = 3;
+
+  async function passiveGenerateOnce(){
+    if(isInsideClaudeArtifact) return; // esto es específicamente para la PWA independiente con Gemini
+    if(generating) return; // no competir con una generación manual en curso
+    if(TOTAL_QUESTIONS >= TARGET_TOTAL) return; // banco ya completo, nada que hacer
+
+    const lastRun = await storageGet('passive_gen_last_run');
+    if(lastRun === todayStr()) return; // ya se intentó hoy
+
+    const apiKey = await storageGet('gemini_api_key');
+    if(!apiKey) return; // sin clave configurada, ni intentarlo
+
+    // marca el intento de hoy ANTES de llamar, así un fallo (incluida saturación) no hace
+    // que se reintente varias veces seguidas el mismo día
+    await storageSet('passive_gen_last_run', todayStr());
+
+    // busca el primer bloque (tema+nivel) que todavía no llegó a la meta
+    let target = null;
+    outerPassive:
+    for(const topic of TOPICS){
+      for(let level=1; level<=MAX_LEVEL; level++){
+        if((QUESTIONS[topic.key][level] || []).length < TARGET_PER_BUCKET){
+          target = { topic, level };
+          break outerPassive;
+        }
+      }
+    }
+    if(!target) return;
+
+    try{
+      const pool = QUESTIONS[target.topic.key][target.level];
+      const existingTexts = pool.map(q=>q.q);
+      const newQs = await callClaudeForQuestions(target.topic.name, target.level, PASSIVE_GEN_COUNT, existingTexts);
+      const seen = new Set(pool.map(q=>q.q));
+      const uniqueNew = newQs.filter(q=>{
+        if(seen.has(q.q)) return false;
+        seen.add(q.q); return true;
+      });
+      if(uniqueNew.length){
+        pool.push(...uniqueNew);
+        QUESTIONS[target.topic.key][target.level] = pool;
+        updateBankUI();
+        await saveExtras(target.topic.key, target.level, pool.slice(SEED_COUNTS[target.topic.key+'-'+target.level] || 0));
+      }
+    }catch(e){
+      // silencioso a propósito: es generación de fondo, no debe interrumpir a quien
+      // simplemente abrió la app a jugar. Se reintenta solo, al día siguiente.
+      console.warn('Generación pasiva no pudo completarse hoy:', e);
+    }
+  }
+
+  setTimeout(passiveGenerateOnce, 6000); // recién a los 6s de abierta la app, para no competir con la carga inicial
+
   // ---------------- Build wheel (SVG) ----------------
   const svg = document.getElementById('wheel');
   const R = 150, CX = 150, CY = 150;
