@@ -1,0 +1,2452 @@
+(function(){
+
+  // ---------------- State ----------------
+  const state = {
+    difficulty: {rows:4, cols:5, label:'Media'},
+    sourceImg: null,      // HTMLImageElement or canvas, ready to cut
+    sourceLabel: '',
+    pieces: [],           // piece metadata + DOM element
+    placedCount: 0,
+    totalPieces: 0,
+    boardW: 0, boardH: 0,
+    pieceW: 0, pieceH: 0,
+    tabSize: 0,
+    timerStart: null,
+    timerInterval: null,
+    rotationEnabled: false,
+    sourceIsBuiltin: false,
+    rows: 0, cols: 0, horiz: null, vert: null,
+    timeAttackEnabled: false,
+    timeLimitSec: 0,
+    timeUp: false,
+    hideTimer: false,
+    dailyMode: false,
+    dailyDate: null,
+    dailyRng: null,
+    zoomScale: 1,
+    markEdgesEnabled: false,
+    multiplayerMode: null,   // null | 'turns' | 'race'
+    activePlayer: 1,         // for 'turns' mode
+    player1Pieces: 0, player2Pieces: 0,
+    raceStage: null,         // null | 'player1' | 'player2'
+    raceSeed: null,
+    raceTime1: 0,
+  };
+
+  // ---------------- Seeded RNG (for the daily challenge) ----------------
+  // mulberry32: small, fast, deterministic PRNG. Same seed -> same sequence
+  // -> same puzzle cut/shuffle/etc for everyone playing on the same date.
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashStringToSeed(str){
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  const DIFFICULTIES = [
+    {key:'facil',  label:'Fácil',    rows:3,  cols:4},
+    {key:'media',  label:'Media',    rows:4,  cols:5},
+    {key:'dificil',label:'Difícil',  rows:6,  cols:7},
+    {key:'experto',label:'Experto',  rows:8,  cols:9},
+    {key:'maestro',label:'Maestro',  rows:10, cols:12},
+    {key:'extremo',label:'Extremo',  rows:13, cols:15},
+  ];
+
+  // ---------------- Built-in demo image: procedural Eiffel Tower ----------------
+  function drawEiffelTower(canvas){
+    const w = canvas.width, h = canvas.height;
+    const ctx = canvas.getContext('2d');
+
+    // Sky
+    const sky = ctx.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0, '#1B2C4F');
+    sky.addColorStop(0.55, '#3C4E72');
+    sky.addColorStop(0.82, '#C98A4B');
+    sky.addColorStop(1, '#E7B463');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0,0,w,h);
+
+    // Sun / moon glow
+    ctx.save();
+    const glow = ctx.createRadialGradient(w*0.78,h*0.30,0, w*0.78,h*0.30, w*0.22);
+    glow.addColorStop(0,'rgba(255,231,180,0.55)');
+    glow.addColorStop(1,'rgba(255,231,180,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+
+    // Distant rooftops silhouette
+    ctx.fillStyle = 'rgba(15,20,35,0.55)';
+    ctx.beginPath();
+    ctx.moveTo(0,h*0.86);
+    for(let x=0;x<=w;x+=w/14){
+      const rh = h*0.86 - (Math.sin(x*0.07)+1)*h*0.02 - (x%3===0? h*0.02:0);
+      ctx.lineTo(x, rh);
+      ctx.lineTo(x+w/28, rh - h*0.015);
+    }
+    ctx.lineTo(w,h*0.86);
+    ctx.lineTo(w,h);
+    ctx.lineTo(0,h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ground
+    ctx.fillStyle = '#0F1420';
+    ctx.fillRect(0, h*0.865, w, h*0.135);
+
+    // ---- Tower geometry (proportions relative to h) ----
+    const groundY = h*0.865;
+    const apexY = h*0.06;
+    const cx = w*0.5;
+    const baseHalfW = w*0.30;
+    const p1Y = h*0.60;   // first platform
+    const p1HalfW = w*0.155;
+    const p2Y = h*0.38;   // second platform
+    const p2HalfW = w*0.075;
+    const p3Y = h*0.155;  // top platform, before mast
+    const p3HalfW = w*0.02;
+
+    ctx.strokeStyle = '#12151C';
+    ctx.fillStyle = '#12151C';
+    ctx.lineJoin = 'round';
+
+    // Four "legs" as two curved silhouettes (left pair, right pair) - draw as thick tapering outline
+    function legPath(fromX, toX, y0, y1, curve){
+      ctx.beginPath();
+      ctx.moveTo(fromX, y0);
+      ctx.quadraticCurveTo(fromX + curve, (y0+y1)/2, toX, y1);
+      return;
+    }
+
+    ctx.lineWidth = w*0.012;
+    ctx.lineCap = 'round';
+
+    // Outer silhouette: base -> p1 -> p2 -> p3 -> apex, mirrored
+    const outline = [
+      [cx-baseHalfW, groundY],
+      [cx-p1HalfW*1.5, p1Y],
+      [cx-p2HalfW*1.6, p2Y],
+      [cx-p3HalfW*3, p3Y],
+      [cx, apexY],
+      [cx+p3HalfW*3, p3Y],
+      [cx+p2HalfW*1.6, p2Y],
+      [cx+p1HalfW*1.5, p1Y],
+      [cx+baseHalfW, groundY],
+    ];
+    ctx.beginPath();
+    ctx.moveTo(outline[0][0], outline[0][1]);
+    for(let i=1;i<outline.length;i++){
+      const [x,y] = outline[i];
+      const [px,py] = outline[i-1];
+      ctx.quadraticCurveTo((px+x)/2 + (i%2? -w*0.02: w*0.02), (py+y)/2, x, y);
+    }
+    ctx.closePath();
+    ctx.globalAlpha = 0.92;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Platforms (horizontal bars)
+    function platform(y, halfW, thick){
+      ctx.fillRect(cx-halfW-w*0.02, y-thick/2, (halfW+w*0.02)*2, thick);
+    }
+    platform(p1Y, p1HalfW, h*0.016);
+    platform(p2Y, p2HalfW, h*0.012);
+    platform(p3Y, p3HalfW, h*0.008);
+
+    // Lattice cross-bracing, clipped to the tower silhouette
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(outline[0][0], outline[0][1]);
+    for(let i=1;i<outline.length;i++){
+      const [x,y] = outline[i];
+      const [px,py] = outline[i-1];
+      ctx.quadraticCurveTo((px+x)/2 + (i%2? -w*0.02: w*0.02), (py+y)/2, x, y);
+    }
+    ctx.closePath();
+    ctx.clip();
+
+    ctx.strokeStyle = 'rgba(230,220,200,0.35)';
+    ctx.lineWidth = Math.max(1, w*0.0022);
+    const bandTop = apexY, bandBottom = groundY;
+    const step = h*0.028;
+    let toggle = true;
+    for(let y=bandTop; y<bandBottom; y+=step){
+      const spanTop = w*0.02 + (y-bandTop)/(bandBottom-bandTop)*w*0.5;
+      ctx.beginPath();
+      if(toggle){
+        ctx.moveTo(cx-spanTop, y);
+        ctx.lineTo(cx+spanTop, y+step);
+        ctx.moveTo(cx+spanTop, y);
+        ctx.lineTo(cx-spanTop, y+step);
+      } else {
+        ctx.moveTo(cx-spanTop, y+step);
+        ctx.lineTo(cx+spanTop, y);
+        ctx.moveTo(cx+spanTop, y+step);
+        ctx.lineTo(cx-spanTop, y);
+      }
+      ctx.stroke();
+      toggle = !toggle;
+    }
+    ctx.restore();
+
+    // Antenna mast
+    ctx.strokeStyle = '#12151C';
+    ctx.lineWidth = w*0.006;
+    ctx.beginPath();
+    ctx.moveTo(cx, apexY);
+    ctx.lineTo(cx, apexY - h*0.05);
+    ctx.stroke();
+
+    // Birds for atmosphere
+    ctx.strokeStyle = 'rgba(20,20,30,0.5)';
+    ctx.lineWidth = Math.max(1,w*0.002);
+    [[0.18,0.22],[0.24,0.26],[0.82,0.18]].forEach(([bx,by])=>{
+      const x=w*bx, y=h*by, s=w*0.014;
+      ctx.beginPath();
+      ctx.moveTo(x-s,y);
+      ctx.quadraticCurveTo(x,y-s*0.8,x+s*0.1,y);
+      ctx.quadraticCurveTo(x+s*0.2,y-s*0.8,x+s*1.1,y);
+      ctx.stroke();
+    });
+  }
+
+  const BUILTIN_IMAGES = [
+    // Real-photo options: these DON'T ship with the app (no image files are
+    // bundled/embedded in this code). If you place matching files in the
+    // SAME root folder as index.html on your own hosting, these thumbnails
+    // light up. If a file isn't there, that thumbnail is simply skipped —
+    // nothing breaks.
+    {key:'eiffel-photo',   label:'Torre Eiffel',            src:'eiffel.jpg'},
+    {key:'liberty-photo',  label:'Estatua de la Libertad',  src:'liberty.jpg'},
+    {key:'pyramids-photo', label:'Pirámides de Giza',       src:'pyramids.jpg'},
+    {key:'worldmap-photo', label:'Mapa del Mundo',          src:'worldmap.jpg'},
+    {key:'flags-photo',    label:'Banderas del Mundo',      src:'flags.jpg'},
+  ];
+
+  // ---------------- UI: builtin thumbnails ----------------
+  const builtinThumbsEl = document.getElementById('builtinThumbs');
+  let availableBuiltins = []; // populated below once existence checks settle; used by "Jugar ya"
+
+  Promise.all(BUILTIN_IMAGES.map(img=>{
+    if(img.draw){
+      return Promise.resolve({img, ok:true, thumbSrc:null});
+    }
+    // Real-photo option: only appears if the file actually exists where
+    // this app is hosted (see BUILTIN_IMAGES comment above). A missing
+    // file just means this thumbnail quietly doesn't show up.
+    return new Promise(resolve=>{
+      const probe = new Image();
+      probe.onload = ()=> resolve({img, ok:true, thumbSrc:img.src});
+      probe.onerror = ()=> resolve({img, ok:false});
+      probe.src = img.src;
+    });
+  })).then(results=>{
+    // All existence checks run in parallel, but resolve at different times —
+    // adding thumbnails only after every check settles keeps the gallery in
+    // the same order BUILTIN_IMAGES is defined in, instead of whichever
+    // network request happened to finish first.
+    results.forEach(r=>{
+      if(!r.ok) return;
+      if(r.img.draw){
+        const c = document.createElement('canvas');
+        c.width=140; c.height=180;
+        r.img.draw(c);
+        addBuiltinThumb(c.toDataURL(), r.img);
+      } else {
+        addBuiltinThumb(r.thumbSrc, r.img);
+      }
+    });
+    availableBuiltins = results.filter(r=>r.ok);
+    document.getElementById('emptyGalleryMsg').style.display = availableBuiltins.length ? 'none' : 'block';
+  });
+
+  function addBuiltinThumb(thumbSrc, img){
+    const div = document.createElement('button');
+    div.type = 'button';
+    div.className='thumb';
+    div.style.backgroundImage = `url(${thumbSrc})`;
+    div.title = img.label;
+    div.setAttribute('aria-label', img.label);
+    div.setAttribute('aria-pressed', 'false');
+    div.addEventListener('click', ()=>{
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
+      div.classList.add('active');
+      div.setAttribute('aria-pressed', 'true');
+      if(img.draw){
+        setSourceFromDraw(img.draw, img.label);
+      } else {
+        const full = new Image();
+        full.onload = ()=> setSourceFromImageElement(full, img.label);
+        full.src = img.src;
+      }
+    });
+    builtinThumbsEl.appendChild(div);
+  }
+
+  function updateLargePreview(){
+    const wrap = document.getElementById('largePreviewWrap');
+    const img = document.getElementById('largePreview');
+    if(!state.sourceImg){ wrap.style.display = 'none'; return; }
+    img.src = state.sourceImg.toDataURL ? state.sourceImg.toDataURL() : '';
+    wrap.style.display = 'block';
+  }
+
+  function setSourceFromDraw(drawFn, label){
+    const c = document.createElement('canvas');
+    c.width = 900; c.height = 1150;
+    drawFn(c);
+    state.sourceImg = c;
+    state.sourceLabel = label;
+    state.sourceIsBuiltin = true;
+    document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
+    document.getElementById('generateBtn').disabled = false;
+    updateLargePreview();
+    setStep(2);
+  }
+
+  function setSourceFromImageElement(imgEl, label){
+    // Draw into a working canvas at a fixed max resolution, cover-fit
+    const maxDim = 1100;
+    let w = imgEl.naturalWidth || imgEl.width;
+    let h = imgEl.naturalHeight || imgEl.height;
+    const scale = Math.min(maxDim/w, maxDim/h, 1) || 1;
+    const targetW = Math.round(w*scale), targetH = Math.round(h*scale);
+    const c = document.createElement('canvas');
+    c.width = targetW; c.height = targetH;
+    const ctx = c.getContext('2d');
+    try{
+      ctx.drawImage(imgEl,0,0,targetW,targetH);
+    }catch(e){
+      document.getElementById('imgStatus').textContent = 'No se pudo leer esa imagen (bloqueo de origen). Probá subirla como archivo.';
+      return;
+    }
+    state.sourceImg = c;
+    state.sourceLabel = label;
+    state.sourceIsBuiltin = false;
+    document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
+    document.getElementById('generateBtn').disabled = false;
+    updateLargePreview();
+    setStep(2);
+  }
+
+  document.getElementById('fileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
+        setSourceFromImageElement(img, file.name);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('loadUrlBtn').addEventListener('click', ()=>{
+    const url = document.getElementById('urlInput').value.trim();
+    if(!url) return;
+    document.getElementById('imgStatus').textContent = 'Cargando imagen…';
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
+      setSourceFromImageElement(img, 'Imagen de URL');
+    };
+    img.onerror = ()=>{
+      document.getElementById('imgStatus').textContent = 'No se pudo cargar esa URL. Probá con otra o subí un archivo.';
+    };
+    img.src = url;
+  });
+
+  // ---------------- AI image generation (Pollinations.ai, no API key) ----------------
+  function generateWithAI(prompt, onDone){
+    const statusEl = document.getElementById('aiStatus');
+    const btn = document.getElementById('generateAiBtn');
+    btn.disabled = true;
+    statusEl.textContent = 'Generando imagen con IA… puede tardar unos segundos.';
+
+    // Pollinations.ai is a free, keyless image-generation service — not an
+    // Anthropic product. It's used here purely because this app is a static
+    // page with no backend of its own to call a proper API from.
+    const seed = Math.floor(Math.random()*1e9);
+    const encoded = encodeURIComponent(prompt);
+    const genUrl = `https://image.pollinations.ai/prompt/${encoded}?width=900&height=1150&nologo=true&seed=${seed}`;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      btn.disabled = false;
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
+      setSourceFromImageElement(img, `IA: "${prompt}"`);
+      statusEl.textContent = 'Usa un servicio gratuito externo (Pollinations.ai), no de Anthropic. Necesita internet y puede tardar unos segundos.';
+      if(onDone) onDone(true);
+    };
+    img.onerror = ()=>{
+      btn.disabled = false;
+      statusEl.textContent = 'No se pudo generar la imagen (¿hay internet?). Probá de nuevo en un momento.';
+      if(onDone) onDone(false);
+    };
+    img.src = genUrl;
+  }
+
+  document.getElementById('generateAiBtn').addEventListener('click', ()=>{
+    const prompt = document.getElementById('aiPromptInput').value.trim();
+    if(!prompt){
+      document.getElementById('aiStatus').textContent = 'Escribí un tema primero (ej: "un castillo entre nubes").';
+      return;
+    }
+    generateWithAI(prompt);
+  });
+
+  // ---------------- Warn about unusually tough combinations ----------------
+  // Purely informational — never blocks starting the puzzle, just sets
+  // expectations before committing to something that might be frustrating.
+  function updateComboWarning(){
+    const row = document.getElementById('comboWarningRow');
+    const el = document.getElementById('comboWarning');
+    const pieceCount = state.difficulty.rows * state.difficulty.cols;
+    const isHardDifficulty = pieceCount >= 120; // Maestro / Extremo
+
+    let message = '';
+    if(isHardDifficulty && state.rotationEnabled && state.timeAttackEnabled){
+      message = '⚠️ Rotación + Contrarreloj + tantas piezas es una combinación muy exigente — es fácil que no te alcance el tiempo.';
+    } else if(isHardDifficulty && state.timeAttackEnabled){
+      message = '⚠️ Con esta cantidad de piezas, el contrarreloj puede quedar muy justo.';
+    } else if(isHardDifficulty && state.rotationEnabled){
+      message = '⚠️ Rotación con tantas piezas puede llevar bastante tiempo — nada te apura, pero avisado estás.';
+    } else if(state.rotationEnabled && state.timeAttackEnabled){
+      message = '⚠️ Rotación + Contrarreloj juntos son bastante más difíciles de lo normal.';
+    }
+
+    if(message){
+      el.textContent = message;
+      row.style.display = 'block';
+    } else {
+      row.style.display = 'none';
+    }
+  }
+
+  // ---------------- UI: difficulty chips ----------------
+  const difficultyRow = document.getElementById('difficultyRow');
+  DIFFICULTIES.forEach((d,i)=>{
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (i===1?' active':'');
+    chip.setAttribute('aria-pressed', i===1 ? 'true' : 'false');
+    chip.textContent = `${d.label} · ${d.rows*d.cols} piezas`;
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('#difficultyRow .chip').forEach(c=>{ c.classList.remove('active'); c.setAttribute('aria-pressed','false'); });
+      chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
+      state.difficulty = d;
+      setStep(2);
+      updateComboWarning();
+    });
+    difficultyRow.appendChild(chip);
+  });
+  state.difficulty = DIFFICULTIES[1];
+
+  // ---------------- UI: rotation toggle ----------------
+  const rotationToggleEl = document.getElementById('rotationToggle');
+  rotationToggleEl.addEventListener('click', ()=>{
+    state.rotationEnabled = !state.rotationEnabled;
+    rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+    rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
+    updateComboWarning();
+  });
+
+  // ---------------- UI: time attack toggle ----------------
+  const timeAttackToggleEl = document.getElementById('timeAttackToggle');
+  timeAttackToggleEl.addEventListener('click', ()=>{
+    state.timeAttackEnabled = !state.timeAttackEnabled;
+    timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+    timeAttackToggleEl.setAttribute('aria-pressed', String(state.timeAttackEnabled));
+    if(state.timeAttackEnabled){
+      // Contrarreloj needs a visible, ticking countdown — the two modes
+      // are opposites, so turning one on turns the other off.
+      state.hideTimer = false;
+      noTimerToggleEl.classList.remove('active');
+      noTimerToggleEl.setAttribute('aria-pressed', 'false');
+    }
+    updateComboWarning();
+  });
+
+  // ---------------- UI: relaxed / no-visible-timer toggle ----------------
+  const noTimerToggleEl = document.getElementById('noTimerToggle');
+  noTimerToggleEl.addEventListener('click', ()=>{
+    state.hideTimer = !state.hideTimer;
+    noTimerToggleEl.classList.toggle('active', state.hideTimer);
+    noTimerToggleEl.setAttribute('aria-pressed', String(state.hideTimer));
+    if(state.hideTimer){
+      state.timeAttackEnabled = false;
+      timeAttackToggleEl.classList.remove('active');
+      timeAttackToggleEl.setAttribute('aria-pressed', 'false');
+    }
+  });
+
+  // ---------------- UI: mark edge pieces toggle ----------------
+  const markEdgesToggleEl = document.getElementById('markEdgesToggle');
+  markEdgesToggleEl.addEventListener('click', ()=>{
+    state.markEdgesEnabled = !state.markEdgesEnabled;
+    markEdgesToggleEl.classList.toggle('active', state.markEdgesEnabled);
+    markEdgesToggleEl.setAttribute('aria-pressed', String(state.markEdgesEnabled));
+  });
+
+  // ---------------- Jigsaw geometry ----------------
+  // edge sign convention: +1 = tab pointing outward (away from piece a's own body, into neighbor)
+  //                        -1 = blank / indentation
+  function buildEdgeMatrices(rows, cols, rand){
+    rand = rand || Math.random;
+    const horiz = []; // horiz[r][c] : edge between (r,c) and (r,c+1), c in [0, cols-2]
+    for(let r=0;r<rows;r++){
+      horiz.push([]);
+      for(let c=0;c<cols-1;c++) horiz[r].push(rand()<0.5?1:-1);
+    }
+    const vert = []; // vert[r][c] : edge between (r,c) and (r+1,c), r in [0, rows-2]
+    for(let r=0;r<rows-1;r++){
+      const row=[];
+      for(let c=0;c<cols;c++) row.push(rand()<0.5?1:-1);
+      vert.push(row);
+    }
+    return {horiz, vert};
+  }
+
+  // draws one edge of a piece path (in local piece coordinates, before clip),
+  // from point (x1,y1) to (x2,y2), with a tab of given sign (0 flat, 1 out, -1 in)
+  function edgePath(ctx, x1,y1,x2,y2, sign, tabSize){
+    if(sign===0){
+      ctx.lineTo(x2,y2);
+      return;
+    }
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const ux = dx/len, uy = dy/len;   // unit along edge
+    const nx = -uy, ny = ux;          // unit normal
+    const dir = sign; // +1 outward, -1 inward
+    const amp = tabSize * dir;
+
+    const p = (t)=>({x:x1+ux*len*t, y:y1+uy*len*t});
+    const a = p(0.38), b = p(0.5), c = p(0.62);
+
+    // control points bulge along normal
+    const bulge = (pt, mult)=>({x:pt.x+nx*amp*mult, y:pt.y+ny*amp*mult});
+
+    const c1 = bulge(a, 0.9);
+    const c2 = bulge(p(0.44), 1.65);
+    const neckTop = bulge(b, 1.65);
+    const c3 = bulge(p(0.56), 1.65);
+    const c4 = bulge(c, 0.9);
+
+    ctx.lineTo(a.x, a.y);
+    ctx.bezierCurveTo(c1.x,c1.y, c2.x,c2.y, neckTop.x,neckTop.y);
+    ctx.bezierCurveTo(c3.x,c3.y, c4.x,c4.y, c.x,c.y);
+    ctx.lineTo(x2,y2);
+  }
+
+  function tracePiecePath(ctx, w, h, edges, tabSize){
+    // edges = {top, right, bottom, left} each -1,0,1 as seen from THIS piece
+    // (top/left signs need flipping since they're shared with neighbor's right/bottom)
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    edgePath(ctx, 0,0, w,0, edges.top, tabSize);
+    edgePath(ctx, w,0, w,h, edges.right, tabSize);
+    edgePath(ctx, w,h, 0,h, edges.bottom, tabSize);
+    edgePath(ctx, 0,h, 0,0, edges.left, tabSize);
+    ctx.closePath();
+  }
+
+  // Paints one piece into `canvas` at a given rotation (0/90/180/270), baking
+  // the rotation directly into the pixels rather than using a CSS transform.
+  // This is what lets full 4-way rotation coexist with the drag-and-drop
+  // math: the canvas's own width/height ARE the piece's true footprint at
+  // that rotation (swapped for 90°/270°), so getBoundingClientRect and every
+  // position/offset calculation elsewhere just works, with zero awareness
+  // that rotation exists at all.
+  function paintPieceCanvas(canvas, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotationDeg, isEdgePiece){
+    // The tab curve's control points bulge out to 1.65x tabSize (see
+    // edgePath's `bulge` calls), so the canvas needs at least that much
+    // margin around each piece — using just 1x tabSize truncated the tip
+    // of every tab against the canvas's own edge, leaving a crescent-shaped
+    // gap where the matching socket on the neighboring piece expected the
+    // full bulge to reach.
+    const pad = tabSize * 1.7;
+    const pieceCanvasW = pieceW + pad*2;
+    const pieceCanvasH = pieceH + pad*2;
+    const rot = ((rotationDeg % 360) + 360) % 360;
+    const swapped = (rot === 90 || rot === 270);
+    canvas.width = swapped ? pieceCanvasH : pieceCanvasW;
+    canvas.height = swapped ? pieceCanvasW : pieceCanvasH;
+    const ctx = canvas.getContext('2d');
+
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.rotate(rot * Math.PI/180);
+    ctx.translate(-pieceCanvasW/2, -pieceCanvasH/2);
+    // From here on, (0,0)-(pieceCanvasW,pieceCanvasH) is the piece's normal,
+    // unrotated drawing frame — identical to the original single-orientation code.
+
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.clip();
+    ctx.drawImage(srcCanvas, sx, sy, pieceCanvasW, pieceCanvasH, -pad, -pad, pieceCanvasW, pieceCanvasH);
+    ctx.restore();
+
+    // Physical-puzzle-piece edge: a darker groove with a thin light
+    // highlight running through it. This is drawn UNCLIPPED and thin on
+    // purpose — two independently-clipped, antialiased shapes that are
+    // meant to fit together exactly (a tab and its matching socket) never
+    // quite meet at the pixel level, leaving a hairline gap that shows the
+    // dark board through it. A slightly bleeding stroke is what papers
+    // over that seam; clipping it (which seems like the "correct" fix)
+    // actually removes the bleed and makes the gap visible again.
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.lineWidth = Math.max(1, Math.min(1.6, tabSize*0.05));
+    ctx.strokeStyle = 'rgba(0,0,0,0.38)';
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.lineWidth = Math.max(0.5, Math.min(0.8, tabSize*0.018));
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.stroke();
+    ctx.restore();
+
+    // Edge-piece marker: a small corner triangle, in the same drawing frame
+    // as everything above so it rotates along with the piece's own
+    // rotation state, always sitting in the piece's "true" top-left corner
+    // (a fixed spot on the artwork) rather than a screen-relative one.
+    if(isEdgePiece){
+      const markSize = Math.min(pieceW, pieceH) * 0.16;
+      ctx.save();
+      ctx.translate(pad, pad);
+      ctx.beginPath();
+      ctx.moveTo(3, 3);
+      ctx.lineTo(3 + markSize, 3);
+      ctx.lineTo(3, 3 + markSize);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(228,193,88,0.9)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(16,20,28,0.6)';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  const HAND_MAX_H = 88; // cap on how tall a loose piece renders, whatever its rotation
+
+  // Scales `canvasEl`'s current (possibly rotation-swapped) pixel size down
+  // to the shared "hand size" budget, preserving its aspect ratio exactly.
+  function handSizeFor(canvasEl){
+    const scale = Math.min(1, HAND_MAX_H / canvasEl.height);
+    return { w: canvasEl.width*scale, h: canvasEl.height*scale };
+  }
+
+  // ---------------- Puzzle generation ----------------
+  const boardWrapEl = document.getElementById('boardWrap');
+  const boardScrollEl = document.getElementById('boardScroll');
+  const boardZoomStageEl = document.getElementById('boardZoomStage');
+  const boardEl = document.getElementById('board');
+  const trayInnerEl = document.getElementById('trayInner');
+
+  // ---------------- Board zoom (for high piece counts) ----------------
+  const ZOOM_MIN = 1, ZOOM_MAX = 3, ZOOM_STEP = 0.5;
+
+  function setZoom(scale){
+    scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale));
+    state.zoomScale = scale;
+    boardEl.style.transform = scale === 1 ? 'none' : `scale(${scale})`;
+    boardZoomStageEl.style.width = (state.boardW * scale) + 'px';
+    boardZoomStageEl.style.height = (state.boardH * scale) + 'px';
+    boardScrollEl.classList.toggle('zoomed', scale > 1);
+  }
+
+  document.getElementById('zoomInBtn').addEventListener('click', ()=> setZoom((state.zoomScale||1) + ZOOM_STEP));
+  document.getElementById('zoomOutBtn').addEventListener('click', ()=> setZoom((state.zoomScale||1) - ZOOM_STEP));
+  document.getElementById('zoomResetBtn').addEventListener('click', ()=> setZoom(1));
+
+  function clearBoard(){
+    boardEl.innerHTML='';
+    trayInnerEl.innerHTML='';
+    state.pieces = [];
+    state.placedCount = 0;
+
+    // A stale reference preview (or a "shown" state left over from a
+    // previous puzzle) must never persist into a freshly generated one.
+    const refImg = document.getElementById('refPreview');
+    if(refImg) refImg.remove();
+    refShown = false;
+    const refBtn = document.getElementById('showRefBtn');
+    if(refBtn) refBtn.textContent = 'Ver referencia';
+  }
+
+  // ---------------- Save / resume progress (localStorage) ----------------
+  // Uses localStorage (not the in-chat "window.storage" API) because this
+  // app is downloaded and self-hosted outside Claude — localStorage is what
+  // actually persists once it's running on the person's own site.
+  const PROGRESS_KEY = 'rompecabezas:progress';
+
+  // Briefly flashes a "✓ Guardado" badge in the corner of the board so
+  // saving — which otherwise happens invisibly in the background — is
+  // actually confirmed to the person, not just assumed.
+  let saveIndicatorTimer = null;
+  function flashSaveIndicator(){
+    const el = document.getElementById('saveIndicator');
+    el.classList.add('show');
+    clearTimeout(saveIndicatorTimer);
+    saveIndicatorTimer = setTimeout(()=> el.classList.remove('show'), 1400);
+  }
+
+  function saveProgress(){
+    try{
+      if(!state.totalPieces || !state.timerStart) return;
+      const payload = {
+        version: 1,
+        savedAt: Date.now(),
+        label: state.sourceLabel,
+        isBuiltin: state.sourceIsBuiltin,
+        imageDataUrl: state.sourceIsBuiltin ? null : state.sourceImg.toDataURL('image/jpeg', 0.72),
+        rows: state.rows, cols: state.cols,
+        rotationEnabled: state.rotationEnabled,
+        horiz: state.horiz, vert: state.vert,
+        elapsedMs: Date.now() - state.timerStart,
+        placedCount: state.placedCount,
+        totalPieces: state.totalPieces,
+        timeAttackEnabled: state.timeAttackEnabled,
+        timeLimitSec: state.timeLimitSec,
+        isDaily: state.dailyMode,
+        dailyDate: state.dailyDate,
+        pieces: state.pieces.map(p => ({r:p.r, c:p.c, rotation:p.rotation, placed:p.placed})),
+      };
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(payload));
+      flashSaveIndicator();
+    }catch(err){
+      // Storage full, disabled, or unavailable (e.g. private browsing) —
+      // saving progress is a nice-to-have, never worth interrupting play for.
+    }
+  }
+
+  function loadSavedProgress(){
+    try{
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      if(!data || !Array.isArray(data.pieces) || !data.rows || !data.cols) return null;
+      return data;
+    }catch(err){
+      return null;
+    }
+  }
+
+  function clearSavedProgress(){
+    try{ localStorage.removeItem(PROGRESS_KEY); }catch(err){}
+  }
+
+  // ---------------- Daily challenge: best time + streak (localStorage) ----------------
+  const DAILY_KEY = 'rompecabezas:daily';
+
+  function loadDailyData(){
+    try{
+      const raw = localStorage.getItem(DAILY_KEY);
+      return raw ? JSON.parse(raw) : {streak:0, lastDate:null, best:{}};
+    }catch(err){
+      return {streak:0, lastDate:null, best:{}};
+    }
+  }
+
+  function yesterdayStr(){
+    const d = new Date();
+    d.setDate(d.getDate()-1);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  function recordDailyCompletion(elapsedSec){
+    try{
+      const data = loadDailyData();
+      const today = todayStr();
+      if(data.best[today] === undefined || elapsedSec < data.best[today]){
+        data.best[today] = elapsedSec;
+      }
+      if(data.lastDate === today){
+        // already completed today — streak doesn't change on a replay
+      } else if(data.lastDate === yesterdayStr()){
+        data.streak = (data.streak||0) + 1;
+        data.lastDate = today;
+      } else {
+        data.streak = 1;
+        data.lastDate = today;
+      }
+      localStorage.setItem(DAILY_KEY, JSON.stringify(data));
+      return {streak: data.streak, bestToday: data.best[today]};
+    }catch(err){
+      return null;
+    }
+  }
+
+  // ---------------- Completed-puzzle history (localStorage) ----------------
+  const HISTORY_KEY = 'rompecabezas:history';
+  const HISTORY_MAX = 200;
+
+  function recordHistoryEntry(entry){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      list.unshift(entry); // most recent first
+      if(list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    }catch(err){
+      // history is a nice-to-have; never worth interrupting the win moment for
+    }
+  }
+
+  function loadHistory(){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(err){
+      return [];
+    }
+  }
+
+  function formatMMSS(totalSec){
+    const m = String(Math.floor(totalSec/60)).padStart(2,'0');
+    const s = String(totalSec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  // A small (not full-resolution) JPEG snapshot of the completed picture,
+  // stored alongside each history entry for the visual "Colección" — kept
+  // deliberately modest in size (max ~360px, moderate JPEG quality) since
+  // this rides along with every single completed puzzle in localStorage,
+  // which has a hard, fairly small per-origin size limit.
+  function captureThumbnail(srcCanvas){
+    try{
+      const maxDim = 360;
+      const scale = Math.min(1, maxDim / Math.max(srcCanvas.width, srcCanvas.height));
+      const w = Math.round(srcCanvas.width * scale);
+      const h = Math.round(srcCanvas.height * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
+      return c.toDataURL('image/jpeg', 0.6);
+    }catch(err){
+      return null; // e.g. a tainted canvas from a CORS-restricted image — skip the thumbnail, not the whole save
+    }
+  }
+
+  function renderHistory(){
+    const list = loadHistory();
+    const summaryEl = document.getElementById('historySummary');
+    const listEl = document.getElementById('historyList');
+
+    if(!list.length){
+      summaryEl.innerHTML = 'Todavía no completaste ningún rompecabezas.';
+      listEl.innerHTML = '<div class="history-empty">Cuando termines uno, va a aparecer acá.</div>';
+      return;
+    }
+
+    const totalSec = list.reduce((sum,e)=>sum+(e.timeSec||0), 0);
+    const totalH = Math.floor(totalSec/3600);
+    const totalM = Math.floor((totalSec%3600)/60);
+    summaryEl.innerHTML = `<b>${list.length}</b> rompecabezas completados · <b>${totalH}h ${totalM}m</b> jugadas en total`;
+
+    listEl.innerHTML = list.map(e=>{
+      const d = new Date(e.completedAt);
+      const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'2-digit'});
+      const timeOfDay = d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+      const badges = [
+        e.isDaily ? '<span class="hi-badge">diario</span>' : '',
+        e.rotationEnabled ? '<span class="hi-badge">rotación</span>' : '',
+        e.timeAttack ? '<span class="hi-badge">contrarreloj</span>' : '',
+      ].join('');
+      return `<div class="history-item">
+        <div class="hi-main">
+          <span class="hi-label">${escapeHtml(e.label||'Rompecabezas')}</span>
+          <span class="hi-meta">${dateStr} · ${timeOfDay} · ${e.totalPieces} piezas${badges}</span>
+        </div>
+        <div class="hi-time">${formatMMSS(e.timeSec)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ---------------- Export / import history + daily stats (as a file) ----------------
+  // Everything here lives only in this browser's localStorage — moving to a
+  // new phone or clearing site data loses it. Exporting to a plain JSON
+  // file the person can re-import elsewhere is the only way around that
+  // without standing up a real backend.
+  const EXPORT_VERSION = 1;
+
+  function exportHistory(){
+    try{
+      const payload = {
+        app: 'taller-de-rompecabezas',
+        version: EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        history: loadHistory(),
+        daily: loadDailyData(),
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rompecabezas-historial-${todayStr()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      document.getElementById('importHistoryStatus').textContent = 'Archivo descargado.';
+    }catch(err){
+      document.getElementById('importHistoryStatus').textContent = 'No se pudo exportar el historial.';
+    }
+  }
+
+  function importHistoryFromFile(file){
+    const statusEl = document.getElementById('importHistoryStatus');
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data || !Array.isArray(data.history)) throw new Error('formato inválido');
+
+        // History: combine with what's already here rather than overwrite —
+        // switching between two phones for a while shouldn't lose either
+        // one's entries. De-duped on the combination of fields that make a
+        // completed-puzzle entry unique.
+        const existing = loadHistory();
+        const seen = new Set(existing.map(e => `${e.completedAt}|${e.label}|${e.timeSec}`));
+        const merged = existing.slice();
+        data.history.forEach(e=>{
+          const key = `${e.completedAt}|${e.label}|${e.timeSec}`;
+          if(!seen.has(key)){ merged.push(e); seen.add(key); }
+        });
+        merged.sort((a,b)=>b.completedAt-a.completedAt);
+        if(merged.length > HISTORY_MAX) merged.length = HISTORY_MAX;
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
+
+        // Daily stats: keep the better (lower) time per date on either side,
+        // and trust whichever device's streak is more recent.
+        if(data.daily){
+          const current = loadDailyData();
+          const mergedBest = Object.assign({}, current.best);
+          Object.entries(data.daily.best || {}).forEach(([date, sec])=>{
+            if(mergedBest[date] === undefined || sec < mergedBest[date]) mergedBest[date] = sec;
+          });
+          let streak = current.streak, lastDate = current.lastDate;
+          if(data.daily.lastDate && (!lastDate || data.daily.lastDate > lastDate)){
+            streak = data.daily.streak;
+            lastDate = data.daily.lastDate;
+          }
+          localStorage.setItem(DAILY_KEY, JSON.stringify({streak, lastDate, best: mergedBest}));
+        }
+
+        renderHistory();
+        renderBestTimes();
+        refreshDailyStats();
+        statusEl.textContent = `Se importaron ${data.history.length} registro${data.history.length===1?'':'s'} (combinados con lo que ya tenías acá).`;
+      }catch(err){
+        statusEl.textContent = 'No se pudo leer ese archivo — ¿es un historial exportado desde esta app?';
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------------- Best times per difficulty (derived from history) ----------------
+  function renderBestTimes(){
+    const history = loadHistory();
+    const table = document.getElementById('bestTimesTable');
+
+    const rowsHtml = DIFFICULTIES.map(diff=>{
+      const matches = history.filter(e => e.rows===diff.rows && e.cols===diff.cols);
+      if(!matches.length){
+        return `<tr>
+          <td>${diff.label}</td>
+          <td>${diff.rows*diff.cols}</td>
+          <td class="bt-empty" colspan="2">Todavía no completado</td>
+        </tr>`;
+      }
+      const best = matches.reduce((a,b)=> b.timeSec < a.timeSec ? b : a);
+      const d = new Date(best.completedAt);
+      const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'2-digit'});
+      const badges = [
+        best.rotationEnabled ? '<span class="hi-badge">rotación</span>' : '',
+        best.timeAttack ? '<span class="hi-badge">contrarreloj</span>' : '',
+      ].join('');
+      return `<tr>
+        <td>${diff.label}</td>
+        <td>${diff.rows*diff.cols}</td>
+        <td class="bt-time">${formatMMSS(best.timeSec)}${badges}</td>
+        <td>${dateStr}</td>
+      </tr>`;
+    }).join('');
+
+    table.innerHTML = `
+      <tr>
+        <th>Dificultad</th>
+        <th>Piezas</th>
+        <th>Mejor tiempo</th>
+        <th>Fecha</th>
+      </tr>
+      ${rowsHtml}
+    `;
+  }
+
+  // ---------------- Visual collection: a gallery of completed puzzles ----------------
+  function renderCollection(){
+    const history = loadHistory();
+    const summaryEl = document.getElementById('collectionSummary');
+    const gridEl = document.getElementById('collectionGrid');
+
+    if(!history.length){
+      summaryEl.textContent = 'Todavía no completaste ningún rompecabezas.';
+      gridEl.innerHTML = '<div class="history-empty">Cuando termines uno, su imagen va a aparecer acá.</div>';
+      return;
+    }
+
+    const withThumbs = history.filter(e=>e.thumb).length;
+    summaryEl.innerHTML = `<b>${history.length}</b> rompecabezas completados` +
+      (withThumbs < history.length ? ` · ${withThumbs} con imagen guardada` : '');
+
+    gridEl.innerHTML = '';
+    history.forEach((entry, i)=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'collection-thumb' + (entry.thumb ? '' : ' no-image');
+      if(entry.thumb){
+        btn.style.backgroundImage = `url(${entry.thumb})`;
+      } else {
+        btn.textContent = '🧩'; // older entries saved before this feature existed
+      }
+      btn.setAttribute('aria-label', `${entry.label} · ${formatMMSS(entry.timeSec)}`);
+      const timeBadge = document.createElement('span');
+      timeBadge.className = 'ct-time';
+      timeBadge.textContent = formatMMSS(entry.timeSec);
+      btn.appendChild(timeBadge);
+      btn.addEventListener('click', ()=> openLightbox(entry));
+      gridEl.appendChild(btn);
+    });
+  }
+
+  function openLightbox(entry){
+    const img = document.getElementById('lightboxImg');
+    const caption = document.getElementById('lightboxCaption');
+    if(entry.thumb){
+      img.style.display = 'block';
+      img.src = entry.thumb;
+    } else {
+      img.style.display = 'none';
+    }
+    const d = new Date(entry.completedAt);
+    const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
+    caption.innerHTML = `<b>${escapeHtml(entry.label||'Rompecabezas')}</b>${entry.totalPieces} piezas · ${formatMMSS(entry.timeSec)} · ${dateStr}`;
+    document.getElementById('collectionLightbox').classList.add('show');
+  }
+
+  // ---------------- Hint: double-tap an empty slot to find its piece ----------------
+  function attachSlotDoubleTap(slot){
+    let lastTap = 0;
+    slot.addEventListener('pointerup', (e)=>{
+      const now = Date.now();
+      if(now - lastTap < 350){
+        lastTap = 0;
+        highlightPieceForSlot(slot);
+      } else {
+        lastTap = now;
+      }
+    });
+  }
+
+  function highlightPieceForSlot(slot){
+    const cx = parseFloat(slot.dataset.correctX);
+    const cy = parseFloat(slot.dataset.correctY);
+    const target = state.pieces.find(p =>
+      !p.placed && Math.abs(p.correctX - cx) < 0.5 && Math.abs(p.correctY - cy) < 0.5
+    );
+    if(!target) return; // already solved (or, in edge cases, mid-animation)
+
+    // If it's sitting in the tray's horizontal strip, scroll it into view
+    // before drawing attention to it — a highlight off-screen helps no one.
+    if(target.container === 'tray'){
+      const elRect = target.el.getBoundingClientRect();
+      const trayRect = trayInnerEl.getBoundingClientRect();
+      if(elRect.left < trayRect.left || elRect.right > trayRect.right){
+        const delta = (elRect.left + elRect.width/2) - (trayRect.left + trayRect.width/2);
+        trayInnerEl.scrollLeft += delta;
+      }
+    }
+
+    target.el.classList.remove('hint'); // restart the animation if tapped again mid-highlight
+    void target.el.offsetWidth; // force reflow so the class removal registers
+    target.el.classList.add('hint');
+    setTimeout(()=>target.el.classList.remove('hint'), 1600);
+  }
+
+  function generatePuzzle(resumeData){
+    clearBoard();
+    stopTimer();
+    if(!resumeData) clearSavedProgress(); // starting fresh discards any old save
+
+    const rows = resumeData ? resumeData.rows : state.difficulty.rows;
+    const cols = resumeData ? resumeData.cols : state.difficulty.cols;
+    const src = state.sourceImg;
+    const aspect = src.height / src.width;
+
+    // Daily challenge uses a seeded RNG so the cut pattern, initial
+    // rotations and shuffle are identical for everyone on the same date.
+    // Race mode reuses the same trick — a single seed shared by both
+    // players — so Jugador 2 gets the exact same cut/shuffle as Jugador 1,
+    // making the comparison fair. Resuming a saved puzzle needs no
+    // randomness at all (every piece's exact state is already known), so
+    // it just uses Math.random for the tray's cosmetic ordering.
+    const rand = (!resumeData && state.dailyMode) ? state.dailyRng
+      : (!resumeData && state.multiplayerMode === 'race') ? mulberry32(state.raceSeed)
+      : Math.random;
+
+    // A fresh (non-resumed) generation in turns mode starts that puzzle's
+    // turn count over — including "Mezclar", which really is a new puzzle.
+    if(!resumeData && state.multiplayerMode === 'turns'){
+      state.activePlayer = 1;
+      state.player1Pieces = 0;
+      state.player2Pieces = 0;
+    }
+
+    // Fit the board fully inside whatever space boardWrap actually has
+    // (both width AND height), so the whole puzzle is visible without
+    // needing to scroll the board itself while playing.
+    const wrapRect = boardWrapEl.getBoundingClientRect();
+    const wrapPad = 16;
+    const availW = Math.max(200, (wrapRect.width || document.body.clientWidth) - wrapPad);
+    const availH = Math.max(200, (wrapRect.height || 420) - wrapPad);
+
+    let boardW, boardH;
+    if(availW * aspect <= availH){
+      boardW = Math.min(availW, 900);
+      boardH = boardW * aspect;
+    } else {
+      boardH = Math.min(availH, 900);
+      boardW = boardH / aspect;
+    }
+    boardW = Math.round(boardW); boardH = Math.round(boardH);
+
+    state.boardW = boardW; state.boardH = boardH;
+    const pieceW = boardW / cols, pieceH = boardH / rows;
+    state.pieceW = pieceW; state.pieceH = pieceH;
+    const tabSize = Math.min(pieceW, pieceH) * 0.22;
+    state.tabSize = tabSize;
+
+    // pre-render source at board resolution for cutting
+    const srcCanvas = document.createElement('canvas');
+    srcCanvas.width = boardW; srcCanvas.height = boardH;
+    srcCanvas.getContext('2d').drawImage(src, 0,0, boardW, boardH);
+    state.srcCanvas = srcCanvas; // kept for repainting pieces later (tap-to-rotate)
+
+    const {horiz, vert} = resumeData
+      ? {horiz: resumeData.horiz, vert: resumeData.vert}
+      : buildEdgeMatrices(rows, cols, rand);
+    state.horiz = horiz; state.vert = vert; // kept for saving/resuming progress
+    state.rows = rows; state.cols = cols;
+
+    boardEl.style.width = boardW+'px';
+    boardEl.style.height = boardH+'px';
+    setZoom(1); // every fresh/resumed board starts unzoomed
+
+    // draw slot outlines (visual target grid)
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const slot = document.createElement('div');
+        slot.className='slot';
+        slot.style.left = (c*pieceW)+'px';
+        slot.style.top = (r*pieceH)+'px';
+        slot.style.width = pieceW+'px';
+        slot.style.height = pieceH+'px';
+        slot.dataset.correctX = c*pieceW - tabSize*1.7;
+        slot.dataset.correctY = r*pieceH - tabSize*1.7;
+        attachSlotDoubleTap(slot);
+        boardEl.appendChild(slot);
+      }
+    }
+
+    // Must match the padding used in paintPieceCanvas exactly (see the note
+    // there): 1x tabSize truncates the tab curve's own control points.
+    const pad = tabSize * 1.7;
+    const pieceCanvasW = pieceW + pad*2;
+    const pieceCanvasH = pieceH + pad*2;
+
+    // Look up a piece's saved state (rotation / placed) when resuming.
+    const savedByRC = new Map();
+    if(resumeData){
+      resumeData.pieces.forEach(p => savedByRC.set(p.r+','+p.c, p));
+    }
+
+    const piecesData = [];
+
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const edges = {
+          top:    r===0 ? 0 : -vert[r-1][c],
+          left:   c===0 ? 0 : -horiz[r][c-1],
+          right:  c===cols-1 ? 0 : horiz[r][c],
+          bottom: r===rows-1 ? 0 : vert[r][c],
+        };
+
+        const sx = c*pieceW - pad, sy = r*pieceH - pad;
+        const saved = resumeData ? savedByRC.get(r+','+c) : null;
+        const rotation = saved
+          ? saved.rotation
+          : (state.rotationEnabled ? [0,90,180,270][Math.floor(rand()*4)] : 0);
+        const isEdge = (r===0 || r===rows-1 || c===0 || c===cols-1) && state.markEdgesEnabled;
+
+        const pc = document.createElement('canvas');
+        paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation, isEdge);
+
+        const correctX = c*pieceW - pad;
+        const correctY = r*pieceH - pad;
+
+        piecesData.push({
+          r, c, canvas:pc, correctX, correctY, w:pieceCanvasW, h:pieceCanvasH,
+          edges, sx, sy, rotation, isEdge, placed: saved ? saved.placed : false,
+        });
+      }
+    }
+
+    // shuffle order for tray placement (only matters for not-yet-placed pieces)
+    const order = piecesData.map((_,i)=>i);
+    for(let i=order.length-1;i>0;i--){
+      const j = Math.floor(rand()*(i+1));
+      [order[i],order[j]] = [order[j],order[i]];
+    }
+
+    let placedCount = 0;
+
+    order.forEach((idx)=>{
+      const pd = piecesData[idx];
+      const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
+      el.draggable = false;
+      el.style.transform = 'none';       // rotation is baked into the pixels, not CSS
+
+      const pieceObj = {
+        el, r: pd.r, c: pd.c, correctX: pd.correctX, correctY: pd.correctY,
+        trueW: pd.w, trueH: pd.h,        // full size at rotation 0, applied on correct placement
+        edges: pd.edges, sx: pd.sx, sy: pd.sy, isEdge: pd.isEdge,
+        placed: pd.placed, container: pd.placed ? 'board' : 'tray',
+        rotation: pd.rotation,           // 0 = correct orientation; 90/180/270 = needs a flip
+      };
+
+      if(pd.placed){
+        el.className = 'piece placed';
+        el.style.position = 'absolute';
+        el.style.left = pd.correctX+'px';
+        el.style.top = pd.correctY+'px';
+        el.style.width = pd.w+'px';
+        el.style.height = pd.h+'px';
+        el.style.cursor = 'default';
+        boardEl.appendChild(el);
+        placedCount++;
+      } else {
+        el.className = 'piece in-tray';
+        const hs = handSizeFor(el);
+        el.style.width = hs.w+'px';
+        el.style.height = hs.h+'px';
+        trayInnerEl.appendChild(el);       // flex row lays it out automatically
+      }
+
+      state.pieces.push(pieceObj);
+      attachDrag(pieceObj);
+    });
+
+    state.totalPieces = piecesData.length;
+    state.placedCount = placedCount;
+    state.timeUp = false;
+
+    if(resumeData){
+      state.timeAttackEnabled = !!resumeData.timeAttackEnabled;
+      state.timeLimitSec = resumeData.timeLimitSec || 0;
+    } else if(state.timeAttackEnabled){
+      const perPiece = state.rotationEnabled ? 4.2 : 3.0;
+      state.timeLimitSec = Math.max(45, Math.round(state.totalPieces * perPiece / 5) * 5);
+    }
+
+    updateStats();
+    startTimer(resumeData ? resumeData.elapsedMs : 0);
+  }
+
+  // ---------------- Drag & drop (pointer events, mouse+touch) ----------------
+  // Movement during drag is done purely with CSS transform (translate3d) on a
+  // single fixed full-viewport "stage", batched through requestAnimationFrame.
+  // The piece is appended to the stage ONCE per drag (not on every pointermove),
+  // which is what removes the stutter/jank from the previous version.
+
+  function getDragStage(){
+    let stage = document.getElementById('dragStage');
+    if(!stage){
+      stage = document.createElement('div');
+      stage.id = 'dragStage';
+      document.body.appendChild(stage);
+    }
+    return stage;
+  }
+
+  function attachDrag(piece){
+    const el = piece.el;
+    // mode: 'idle' -> 'pending' (we wait to see whether this becomes a tap,
+    // a scroll, or a lift) -> 'scrolling' (hand the gesture to the tray's
+    // horizontal scroll), 'dragging' (lift the piece), or released while
+    // still 'pending' (a tap — used to flip a rotated piece right-side up).
+    let mode = 'idle';
+    let activePointerId = null;
+    let offsetX = 0, offsetY = 0;
+    let startX = 0, startY = 0;
+    let lastX = 0, lastY = 0;        // latest pointer position
+    let lastScrollX = 0;
+    let trayBottomAtStart = 0;
+    let rafId = null;
+
+    const DEADZONE = 6;          // px of wiggle room before committing to a gesture
+    const HORIZ_BIAS = 1.3;      // how much more horizontal than vertical movement must be to count as a scroll
+    const EXIT_MARGIN = 10;      // px below the tray's bottom edge that unambiguously means "lifting out"
+
+    function scheduleMove(){
+      if(rafId) return;
+      rafId = requestAnimationFrame(()=>{
+        rafId = null;
+        const x = lastX - offsetX;
+        const y = lastY - offsetY;
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      });
+    }
+
+    let startRect = null;            // piece's resting rect, captured at pointerdown
+
+    function beginLift(){
+      mode = 'dragging';
+      el.classList.add('dragging');
+
+      // The piece is carried at its true size *times the current board
+      // zoom* — otherwise, once zoomed in, the board's slots look bigger
+      // on screen while the piece being dragged stays the same visual
+      // size, so it never looks like it actually fits the hole even though
+      // the underlying drop-position math is correct.
+      //
+      // The grab point is recomputed as a FRACTION of whatever size the
+      // piece currently is (hand-size in the tray, true-size already
+      // sitting on the board, etc.) and then reapplied to the new carry
+      // size — that's what makes this correct regardless of the piece's
+      // size before this exact moment, and regardless of zoom.
+      const zoom = state.zoomScale || 1;
+      const targetW = piece.trueW * zoom;
+      const targetH = piece.trueH * zoom;
+      const fracX = offsetX / startRect.width;
+      const fracY = offsetY / startRect.height;
+      offsetX = fracX * targetW;
+      offsetY = fracY * targetH;
+      el.style.width = targetW+'px';
+      el.style.height = targetH+'px';
+
+      el.style.position = 'fixed';
+      el.style.left = '0px';
+      el.style.top = '0px';
+      el.style.margin = '0';
+      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0)`;
+      getDragStage().appendChild(el);
+      scheduleMove();
+    }
+
+    // NOTE: we deliberately do NOT use setPointerCapture here. The piece
+    // gets reparented into #dragStage the moment the drag starts, and in
+    // practice that reparenting causes captured pointer events to stop
+    // arriving. Listening on `document` instead is what actually keeps the
+    // drag smooth and reliable, on both mouse and touch.
+    function onPointerMove(e){
+      if(e.pointerId !== activePointerId) return;
+      lastX = e.clientX; lastY = e.clientY;
+
+      if((mode === 'pending' || mode === 'scrolling') && piece.container === 'tray'){
+        // The finger physically leaving the tray strip downward is an
+        // unambiguous "lift" signal — it always wins, no matter the angle
+        // of the gesture so far or whether we'd already started treating it
+        // as a scroll. This matters because the tray sits above the board:
+        // a piece can legitimately need a lot of *sideways* travel to reach
+        // its target column (which can look like a scroll at first), and
+        // the finger crossing below the tray at any point must still be
+        // able to promote the gesture to a lift.
+        if(e.clientY > trayBottomAtStart + EXIT_MARGIN){
+          beginLift();
+        } else if(mode === 'pending'){
+          const dx = e.clientX - startX, dy = e.clientY - startY;
+          const adx = Math.abs(dx), ady = Math.abs(dy);
+          if(adx < DEADZONE && ady < DEADZONE) return; // not enough movement to decide yet
+          if(adx > ady * HORIZ_BIAS){
+            // Clearly a horizontal swipe, still inside the tray: scroll it
+            // instead of picking the piece up.
+            mode = 'scrolling';
+            lastScrollX = e.clientX;
+          } else {
+            beginLift();
+          }
+        }
+      } else if(mode === 'pending'){
+        // Loose piece already on the board: no scroll to hand off to, so
+        // any real movement in any direction just means "lift it".
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        if(Math.abs(dx) > DEADZONE || Math.abs(dy) > DEADZONE){
+          beginLift();
+        } else {
+          return;
+        }
+      }
+
+      if(mode === 'scrolling'){
+        trayInnerEl.scrollLeft -= (e.clientX - lastScrollX);
+        lastScrollX = e.clientX;
+        return;
+      }
+
+      if(mode === 'dragging'){
+        scheduleMove();
+      }
+    }
+    function onPointerUp(e){
+      if(e.pointerId !== activePointerId) return;
+      const wasDragging = (mode === 'dragging');
+      const wasPending = (mode === 'pending');
+      mode = 'idle';
+      activePointerId = null;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+      if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+      if(wasDragging){
+        endDrag(e);
+      } else if(wasPending && state.rotationEnabled && !piece.placed){
+        // Released without ever moving enough to count as a scroll or a
+        // lift: that's a tap, and taps flip a piece right-side up.
+        rotatePiece();
+      }
+    }
+
+    // Belt-and-suspenders against iOS Safari's long-press "Save Image /
+    // Copy" callout: the CSS (-webkit-touch-callout:none, user-select:none,
+    // touch-action:none) already applied to .piece normally covers this,
+    // but Safari has a known quirk where <canvas> elements can still pop
+    // the native context menu on a long press regardless of that CSS.
+    // Explicitly cancelling the contextmenu event closes that gap.
+    el.addEventListener('contextmenu', (e)=> e.preventDefault());
+
+    el.addEventListener('pointerdown', (e)=>{
+      if(piece.placed || state.timeUp) return;
+      activePointerId = e.pointerId;
+      startX = e.clientX; startY = e.clientY;
+      lastX = e.clientX; lastY = e.clientY;
+      startRect = el.getBoundingClientRect();
+      offsetX = e.clientX - startRect.left;
+      offsetY = e.clientY - startRect.top;
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener('pointercancel', onPointerUp);
+
+      // Every gesture starts as "pending" — this is what lets a plain tap
+      // (no meaningful movement) be recognized and used to flip a rotated
+      // piece, instead of every touch immediately picking the piece up.
+      mode = 'pending';
+      if(piece.container === 'tray'){
+        trayBottomAtStart = trayInnerEl.getBoundingClientRect().bottom;
+      }
+    });
+
+    function finalizeInto(parent, left, top, growToTrue){
+      el.classList.remove('in-tray');
+      el.style.position = 'absolute';
+      // Correct placement always means rotation 0 (enforced before this is
+      // ever called with growToTrue); free drops keep whatever rotation the
+      // piece currently has.
+      el.style.transform = 'none'; // rotation lives in the pixels, never in CSS
+      el.style.left = left+'px';
+      el.style.top = top+'px';
+      // Always settle at plain true size (never true*zoom) once it's a
+      // child of the board — the board's own CSS zoom transform is what
+      // makes it appear the right size on screen, matching its neighbors.
+      // Without this, a piece carried at a zoomed-up size that gets freely
+      // dropped (not an exact placement) would end up double-scaled.
+      el.style.width = piece.trueW+'px';
+      el.style.height = piece.trueH+'px';
+      parent.appendChild(el);
+    }
+
+    // Instant placement (used for free drops that don't need a snap animation)
+    function settleInto(parent, left, top){
+      finalizeInto(parent, left, top, false);
+    }
+
+    // Sends the piece back into the tray's normal horizontal flow (no
+    // manual left/top bookkeeping needed — flexbox lays it out).
+    function returnToTray(){
+      el.style.position = '';
+      el.style.left = '';
+      el.style.top = '';
+      el.style.transform = 'none';
+      const hs = handSizeFor(el);
+      el.style.width = hs.w+'px';
+      el.style.height = hs.h+'px';
+      el.classList.add('in-tray');
+      trayInnerEl.appendChild(el);
+    }
+
+    // Tap-to-rotate: a plain tap (no drag) turns the piece 90° clockwise.
+    // Rotation is baked directly into the canvas's own pixels (see
+    // paintPieceCanvas) rather than applied as a CSS transform — that's
+    // what lets 90°/270° swap the piece's footprint correctly without any
+    // special-casing in the drag math, which only ever looks at the
+    // element's plain box model. Only rotation 0 counts as a valid
+    // placement (see endDrag). If the piece is already sitting exactly on
+    // its correct slot when rotated back to 0, the tap completes the
+    // placement on its own — no need to pick it up and drop it again.
+    function rotatePiece(){
+      piece.rotation = (piece.rotation + 90) % 360;
+      paintPieceCanvas(el, piece.edges, state.pieceW, state.pieceH, state.tabSize, state.srcCanvas, piece.sx, piece.sy, piece.rotation, piece.isEdge);
+
+      // Deliberately do NOT try to re-center the piece as its box resizes
+      // (90°/270° swap width and height) — anchoring from the existing
+      // top-left keeps this simple and, crucially, keeps a piece that's
+      // sitting exactly on its correct slot exactly there across every tap,
+      // which is what the "does this complete the placement" check below
+      // depends on. Only tray pieces get shrunk to hand size here — a piece
+      // already sitting on the board (even mis-rotated) stays at true size,
+      // since it was already grown to true size the moment it was lifted.
+      if(piece.container === 'tray'){
+        const hs = handSizeFor(el);
+        el.style.width = hs.w+'px';
+        el.style.height = hs.h+'px';
+      }
+
+      pulse(el);
+
+      if(piece.rotation === 0 && piece.container === 'board' && !piece.placed){
+        const curLeft = parseFloat(el.style.left) || 0;
+        const curTop = parseFloat(el.style.top) || 0;
+        const sitting = Math.hypot(curLeft - piece.correctX, curTop - piece.correctY) < 1;
+        if(sitting){
+          piece.placed = true;
+          el.classList.add('placed');
+          el.style.cursor = 'default';
+          el.style.left = piece.correctX+'px';
+          el.style.top = piece.correctY+'px';
+          el.style.width = piece.trueW+'px';
+          el.style.height = piece.trueH+'px';
+          state.placedCount++;
+          updateStats();
+          vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
+          announce(`Pieza colocada. ${state.placedCount} de ${state.totalPieces}.`);
+          if(state.placedCount === state.totalPieces){
+            setTimeout(onWin, 220);
+          }
+        }
+      }
+
+      saveProgress();
+    }
+
+    // Animated placement: slides from wherever the finger let go into the
+    // exact correct slot, using the Web Animations API on transform so it
+    // stays smooth regardless of the position:fixed -> absolute switch.
+    // The piece also grows from its "hand size" to its true board size,
+    // right as it locks in — a deliberate, satisfying snap rather than a
+    // jarring resize on pickup (which is why it stays hand-size the whole
+    // time it's just being carried around).
+    function snapAnimateInto(parent, left, top){
+      const parentRect = parent.getBoundingClientRect();
+      const zoom = state.zoomScale || 1;
+      // Opposite conversion from endDrag: left/top are true board-resolution
+      // units, but the animation moves a fixed-position element in screen
+      // space, so they need to be scaled UP by the current zoom before
+      // adding them to the board's on-screen (already-scaled) position.
+      const finalX = parentRect.left + left*zoom;
+      const finalY = parentRect.top + top*zoom;
+      const anim = el.animate(
+        [{transform: el.style.transform}, {transform:`translate3d(${finalX}px, ${finalY}px, 0)`}],
+        {duration:170, easing:'cubic-bezier(.2,.85,.3,1.15)'}
+      );
+      // width/height grow via the CSS transition already defined on .piece
+      requestAnimationFrame(()=>{
+        el.style.width = piece.trueW+'px';
+        el.style.height = piece.trueH+'px';
+      });
+      anim.onfinish = () => finalizeInto(parent, left, top, true);
+    }
+
+    function endDrag(e){
+      el.classList.remove('dragging');
+      el.style.margin = '';
+
+      const boardRect = boardEl.getBoundingClientRect();
+      const zoom = state.zoomScale || 1;
+      // boardRect reflects the CSS-scaled (zoomed) on-screen size, but every
+      // piece position (correctX/Y, threshold, etc.) is expressed in true,
+      // unscaled board-resolution pixels — so screen-space drop coordinates
+      // must be divided back down by the current zoom before comparing.
+      const dropX = (e.clientX - offsetX - boardRect.left) / zoom;
+      const dropY = (e.clientY - offsetY - boardRect.top) / zoom;
+
+      const threshold = Math.min(state.pieceW, state.pieceH) * 0.32;
+      const dist = Math.hypot(dropX - piece.correctX, dropY - piece.correctY);
+      const positionCorrect = dist < threshold;
+      const correctlyOriented = piece.rotation === 0;
+
+      if(positionCorrect && correctlyOriented){
+        piece.placed = true;
+        piece.container = 'board';
+        el.classList.add('placed');
+        el.style.cursor = 'default';
+        state.placedCount++;
+        updateStats();
+        snapAnimateInto(boardEl, piece.correctX, piece.correctY);
+        setTimeout(()=>pulse(el), 170);
+        vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
+          announce(`Pieza colocada. ${state.placedCount} de ${state.totalPieces}.`);
+        if(state.placedCount === state.totalPieces){
+          setTimeout(onWin, 220);
+        }
+      } else if(positionCorrect){
+        // Right spot, wrong way up: snap it exactly into the slot so it
+        // looks settled, but don't count it as placed yet. A tap will flip
+        // it — and since it's already sitting exactly on its slot, that tap
+        // completes the placement on its own (see rotatePiece()).
+        el.classList.remove('in-tray');
+        settleInto(boardEl, piece.correctX, piece.correctY);
+        piece.container = 'board';
+      } else {
+        // A drop counts as "on the board" purely based on the board's own
+        // bounds — no need to reason about where the tray sits relative to
+        // it, which is what broke when the tray moved above the board.
+        const overBoard = dropX > -state.tabSize*1.7 && dropX < state.boardW &&
+                           dropY > -state.tabSize*1.7 && dropY < state.boardH;
+        if(overBoard){
+          el.classList.remove('in-tray');
+          settleInto(boardEl, dropX, dropY);
+          piece.container = 'board';
+        } else {
+          returnToTray();
+          piece.container = 'tray';
+        }
+
+        // "Close, but not quite" feedback: a drop that landed reasonably
+        // near its correct slot but not close enough to snap would
+        // otherwise look identical to any other random free drop — nothing
+        // told the person their attempt was even registered. A near miss
+        // gets a quick shake and a soft red flash instead of silence.
+        if(dist < threshold * 2.5){
+          el.classList.add('near-miss');
+          vibrateFeedback([12,40,12]);
+          el.addEventListener('animationend', function clearNearMiss(){
+            el.classList.remove('near-miss');
+            el.removeEventListener('animationend', clearNearMiss);
+          });
+        }
+      }
+
+      saveProgress();
+    }
+
+  }
+
+  function pulse(el){
+    el.animate(
+      [{transform:'scale(1.08)'},{transform:'scale(1)'}],
+      {duration:180, easing:'ease-out'}
+    );
+  }
+
+  // Subtle haptic feedback on devices that support the Vibration API
+  // (mostly Android phones — iOS Safari has no navigator.vibrate at all,
+  // and this simply does nothing there, which is the correct fallback).
+  // Local multiplayer: credits a correctly-placed piece to whichever
+  // player currently has the turn, when turns mode is active. A no-op the
+  // rest of the time.
+  function recordPlacementForActivePlayer(){
+    if(state.multiplayerMode !== 'turns') return;
+    if(state.activePlayer === 1) state.player1Pieces++;
+    else state.player2Pieces++;
+    updateTurnUI();
+  }
+
+  // Announces a short message to screen readers via the visually-hidden
+  // aria-live region, without interrupting whatever the person is
+  // currently doing (aria-live="polite" queues rather than barges in).
+  function announce(message){
+    const el = document.getElementById('ariaLiveStatus');
+    if(el) el.textContent = message;
+  }
+
+  function vibrateFeedback(pattern){
+    try{
+      if(navigator.vibrate) navigator.vibrate(pattern);
+    }catch(err){
+      // never let a missing/blocked vibration API interrupt gameplay
+    }
+  }
+
+  // ---------------- Sound (synthesized, no audio files needed) ----------------
+  // Preference persists across sessions, separate from any single puzzle's state.
+  const SOUND_KEY = 'rompecabezas:sound';
+  try{
+    state.soundEnabled = localStorage.getItem(SOUND_KEY) !== '0'; // on by default
+  }catch(err){
+    state.soundEnabled = true;
+  }
+
+  let audioCtx = null;
+  function getAudioCtx(){
+    // Browsers require a user gesture before audio can play — every call
+    // site here only ever runs in response to a tap/click, so creating (and
+    // resuming) it lazily on first use is always safe.
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(err){ return null; }
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    return audioCtx;
+  }
+
+  function playClickSound(){
+    if(!state.soundEnabled) return;
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    try{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.16, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    }catch(err){ /* audio is a nice-to-have, never worth breaking play for */ }
+  }
+
+  function playWinChime(){
+    if(!state.soundEnabled) return;
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    try{
+      const now = ctx.currentTime;
+      [523.25, 659.25, 783.99].forEach((freq, i)=>{ // a quick C-E-G arpeggio
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const t = now + i*0.1;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.18, t+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t+0.32);
+      });
+    }catch(err){ /* ditto */ }
+  }
+
+  // ---------------- Stats / timer ----------------
+  function updateStats(){
+    document.getElementById('statPieces').textContent = `${state.placedCount}/${state.totalPieces}`;
+  }
+  function startTimer(initialElapsedMs){
+    state.timerStart = Date.now() - (initialElapsedMs || 0);
+    stopTimer(true);
+    const timeEl = document.getElementById('statTime');
+    const timeLabelEl = document.getElementById('statTimeLabel');
+
+    if(state.hideTimer){
+      // We still track state.timerStart internally (so history/best-times
+      // keep working once the puzzle is done) — we just never render a
+      // ticking number during play, which is the whole point for someone
+      // who finds a visible countdown/countup stressful.
+      timeEl.textContent = '🧘';
+      timeEl.classList.remove('urgent');
+      if(timeLabelEl) timeLabelEl.textContent = 'Sin apuro';
+      state.timerInterval = null;
+      return;
+    }
+    if(timeLabelEl) timeLabelEl.textContent = 'Tiempo';
+
+    state.timerInterval = setInterval(()=>{
+      const elapsedS = Math.floor((Date.now()-state.timerStart)/1000);
+
+      if(state.timeAttackEnabled){
+        const remaining = state.timeLimitSec - elapsedS;
+        if(remaining <= 0){
+          timeEl.textContent = '00:00';
+          timeEl.classList.remove('urgent');
+          onTimeUp();
+          return;
+        }
+        const mm = String(Math.floor(remaining/60)).padStart(2,'0');
+        const ss = String(remaining%60).padStart(2,'0');
+        timeEl.textContent = `${mm}:${ss}`;
+        timeEl.classList.toggle('urgent', remaining <= 10);
+      } else {
+        const mm = String(Math.floor(elapsedS/60)).padStart(2,'0');
+        const ss = String(elapsedS%60).padStart(2,'0');
+        timeEl.textContent = `${mm}:${ss}`;
+      }
+    }, 500);
+  }
+  function stopTimer(silent){
+    if(state.timerInterval) clearInterval(state.timerInterval);
+    if(!silent && state.timerStart){
+      // keep last displayed value
+    }
+  }
+
+  function onTimeUp(){
+    stopTimer();
+    state.timeUp = true;
+    clearSavedProgress();
+    document.getElementById('timeUpStats').textContent =
+      `${state.sourceLabel} · ${state.placedCount}/${state.totalPieces} piezas colocadas`;
+    document.getElementById('timeUpOverlay').classList.add('show');
+    announce('Se acabó el tiempo.');
+  }
+
+  let lastResultStatsLine = '';
+
+  function onWin(){
+    stopTimer();
+    vibrateFeedback([20,60,20,60,40]); playWinChime();
+    const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
+    const timeText = formatMMSS(elapsedSec); // always the real time here — the
+    // point of hiding it during play is to avoid a stressful ticking clock,
+    // not to hide the result once the puzzle is actually done.
+
+    // ---- Race mode, stage 1: Jugador 1 just finished — hand off to Jugador 2
+    // on the exact same puzzle (same seed), instead of the normal win flow.
+    if(state.multiplayerMode === 'race' && state.raceStage === 'player1'){
+      state.raceTime1 = elapsedSec;
+      state.raceStage = 'player2';
+      clearSavedProgress();
+      document.getElementById('winOverlay').querySelector('h2').textContent = '🏁 ¡Turno del Jugador 2!';
+      document.getElementById('winStats').textContent =
+        `Jugador 1 terminó en ${timeText}. Pasále el dispositivo al Jugador 2 y arranquen cuando esté listo.`;
+      document.getElementById('shareResultBtn').style.display = 'none';
+      document.getElementById('playAgainBtn').textContent = 'Jugador 2: ¡Arrancar!';
+      document.getElementById('shareStatus').textContent = '';
+      document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
+      document.getElementById('winOverlay').classList.add('show');
+      announce(`Jugador 1 terminó en ${timeText}. Turno del Jugador 2.`);
+      return;
+    }
+
+    let dailyExtra = '';
+    if(state.dailyMode){
+      const result = recordDailyCompletion(elapsedSec);
+      if(result){
+        const bm = String(Math.floor(result.bestToday/60)).padStart(2,'0');
+        const bs = String(result.bestToday%60).padStart(2,'0');
+        dailyExtra = ` · racha: ${result.streak} día${result.streak===1?'':'s'} · mejor de hoy: ${bm}:${bs}`;
+      }
+    }
+
+    // ---- Race mode, stage 2: Jugador 2 just finished — declare a winner.
+    let raceExtra = '', raceTitle = null;
+    if(state.multiplayerMode === 'race' && state.raceStage === 'player2'){
+      const t1 = state.raceTime1, t2 = elapsedSec;
+      raceTitle = t1 === t2 ? '🤝 ¡Empate!' : (t2 < t1 ? '🏆 ¡Gana Jugador 2!' : '🏆 ¡Gana Jugador 1!');
+      raceExtra = ` · Jugador 1: ${formatMMSS(t1)} · Jugador 2: ${formatMMSS(t2)}`;
+      state.multiplayerMode = null;
+      state.raceStage = null;
+    }
+
+    // ---- Turns mode: show the per-player breakdown, then close out the session.
+    let turnsExtra = '';
+    if(state.multiplayerMode === 'turns'){
+      turnsExtra = ` · Jugador 1: ${state.player1Pieces} piezas · Jugador 2: ${state.player2Pieces} piezas`;
+      state.multiplayerMode = null;
+      updateTurnUI();
+    }
+
+    recordHistoryEntry({
+      completedAt: Date.now(),
+      label: state.sourceLabel,
+      totalPieces: state.totalPieces,
+      rows: state.rows, cols: state.cols,
+      timeSec: elapsedSec,
+      rotationEnabled: state.rotationEnabled,
+      timeAttack: state.timeAttackEnabled,
+      isDaily: state.dailyMode,
+      thumb: captureThumbnail(state.srcCanvas),
+    });
+    clearSavedProgress();
+    const statsLine = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}${raceExtra}${turnsExtra}`;
+    document.getElementById('winOverlay').querySelector('h2').textContent = raceTitle || 'Rompecabezas completo';
+    document.getElementById('winStats').textContent = statsLine;
+    lastResultStatsLine = statsLine;
+    document.getElementById('shareStatus').textContent = '';
+    document.getElementById('shareResultBtn').style.display = ''; // undo a possible race hand-off hide
+    document.getElementById('playAgainBtn').textContent = 'Armar otro'; // undo a possible race hand-off label
+    document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
+    document.getElementById('winOverlay').classList.add('show');
+    announce(`¡Rompecabezas completo! ${statsLine}`);
+  }
+
+  // ---------------- Share the finished puzzle as an image ----------------
+  function buildResultCanvas(){
+    const src = state.srcCanvas;
+    const headerH = Math.round(src.width * 0.14);
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width;
+    canvas.height = src.height + headerH;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#10161F';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Title
+    ctx.fillStyle = '#E4C158';
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.round(headerH*0.34)}px Georgia, serif`;
+    ctx.fillText('¡Rompecabezas completo!', canvas.width/2, headerH*0.46);
+
+    // Stats line
+    ctx.fillStyle = '#EDE6D6';
+    ctx.font = `${Math.round(headerH*0.20)}px Georgia, serif`;
+    ctx.fillText(lastResultStatsLine, canvas.width/2, headerH*0.78);
+
+    ctx.drawImage(src, 0, headerH);
+
+    // thin brass border around the finished picture for a "frame" feel
+    ctx.strokeStyle = '#C9A227';
+    ctx.lineWidth = Math.max(2, src.width*0.004);
+    ctx.strokeRect(0, headerH, src.width, src.height);
+
+    return canvas;
+  }
+
+  function shareResult(){
+    const statusEl = document.getElementById('shareStatus');
+    const canvas = buildResultCanvas();
+
+    canvas.toBlob(async (blob)=>{
+      if(!blob){
+        statusEl.textContent = 'No se pudo generar la imagen.';
+        return;
+      }
+      const file = new File([blob], 'rompecabezas.png', {type:'image/png'});
+
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({
+            files: [file],
+            title: 'Puzzle Ya: Agilidad y Desafío',
+            text: lastResultStatsLine,
+          });
+          statusEl.textContent = '';
+        }catch(err){
+          // AbortError just means the person closed the share sheet — not a failure
+          if(err && err.name !== 'AbortError'){
+            statusEl.textContent = 'No se pudo compartir. Probá descargar la imagen.';
+          }
+        }
+      } else {
+        // Desktop / unsupported browsers: fall back to a plain download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'rompecabezas.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Imagen descargada.';
+      }
+    }, 'image/png');
+  }
+
+  // ---------------- Step indicator ----------------
+  function setStep(n){
+    document.querySelectorAll('#stepsIndicator .step').forEach(el=>{
+      const s = Number(el.dataset.step);
+      el.classList.toggle('active', s===n);
+      el.classList.toggle('done', s<n);
+    });
+  }
+
+  // ---------------- Buttons ----------------
+  function showGeneratingOverlay(){
+    document.getElementById('generatingOverlay').style.display = 'flex';
+  }
+  function hideGeneratingOverlay(){
+    document.getElementById('generatingOverlay').style.display = 'none';
+  }
+
+  // Cutting a couple hundred pieces (Maestro/Extremo) is synchronous work
+  // that can take a perceptible moment — showing the indicator, then
+  // waiting two frames before starting, guarantees the browser actually
+  // paints it before the heavy loop blocks the main thread. Without that
+  // wait, the indicator and the freeze would start on the same frame and
+  // the person would never see it appear at all.
+  function runGeneratePuzzle(resumeData){
+    showGeneratingOverlay();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      generatePuzzle(resumeData);
+      updateTurnUI();
+      hideGeneratingOverlay();
+    }));
+  }
+
+  function enterPlayMode(resumeData){
+    document.getElementById('setupPanel').classList.add('hide');
+    document.getElementById('board-area').classList.add('visible');
+    document.body.classList.add('playing');
+    setStep(3);
+    runGeneratePuzzle(resumeData);
+  }
+
+  // ---------------- Quick start: one tap, no decisions ----------------
+  const QUICKSTART_PROMPTS = [
+    'un castillo entre nubes al atardecer',
+    'un dragón dormido sobre un tesoro',
+    'una ciudad futurista de noche con luces de neón',
+    'un bosque encantado con luciérnagas',
+    'un faro en medio de una tormenta',
+    'un jardín japonés con cerezos en flor',
+  ];
+
+  function quickStartWithImageReady(){
+    // Medium difficulty is the second chip (index 1) in DIFFICULTIES.
+    const chips = document.querySelectorAll('#difficultyRow .chip');
+    if(chips[1]) chips[1].click();
+    state.dailyMode = false;
+    enterPlayMode();
+  }
+
+  document.getElementById('quickStartBtn').addEventListener('click', ()=>{
+    if(availableBuiltins.length){
+      const pick = availableBuiltins[Math.floor(Math.random()*availableBuiltins.length)];
+      const img = new Image();
+      img.onload = ()=>{
+        document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
+        setSourceFromImageElement(img, pick.img.label);
+        quickStartWithImageReady();
+      };
+      img.onerror = ()=>{
+        // Shouldn't normally happen (already probed successfully once), but
+        // fall back to AI generation rather than leaving the person stuck.
+        const prompt = QUICKSTART_PROMPTS[Math.floor(Math.random()*QUICKSTART_PROMPTS.length)];
+        generateWithAI(prompt, ok => { if(ok) quickStartWithImageReady(); });
+      };
+      img.src = pick.thumbSrc;
+    } else {
+      // No built-in photos on this hosting — AI generation is the only
+      // "no extra taps needed" option left.
+      const prompt = QUICKSTART_PROMPTS[Math.floor(Math.random()*QUICKSTART_PROMPTS.length)];
+      generateWithAI(prompt, ok => { if(ok) quickStartWithImageReady(); });
+    }
+  });
+
+  document.getElementById('generateBtn').addEventListener('click', ()=>{
+    state.dailyMode = false;
+    enterPlayMode();
+  });
+
+  document.getElementById('changeImgBtn').addEventListener('click', ()=>{
+    if(state.placedCount > 0){
+      const n = state.placedCount;
+      const ok = confirm(`Tenés ${n===1 ? '1 pieza colocada' : `${n} piezas colocadas`}. Queda${n===1?'':'n'} guardada${n===1?'':'s'} y podés continuarla${n===1?'':'s'} después, pero si armás un rompecabezas nuevo se va${n===1?'':'n'} a perder. ¿Volver a elegir imagen igual?`);
+      if(!ok) return;
+    }
+    stopTimer();
+    document.getElementById('board-area').classList.remove('visible');
+    document.getElementById('setupPanel').classList.remove('hide');
+    document.body.classList.remove('playing');
+    setStep(1);
+    updateComboWarning();
+  });
+
+  // ---------------- Resume-progress banner ----------------
+  (function initResumeBanner(){
+    const saved = loadSavedProgress();
+    if(!saved) return;
+
+    const banner = document.getElementById('resumeBanner');
+    const details = document.getElementById('resumeDetails');
+    const mins = Math.floor((saved.elapsedMs||0)/60000);
+    const secs = Math.floor(((saved.elapsedMs||0)%60000)/1000);
+    const timeStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    details.innerHTML = `<span class="hint">${saved.label || 'Rompecabezas'} · ${saved.rows*saved.cols} piezas · ${saved.placedCount||0}/${saved.totalPieces||saved.rows*saved.cols} colocadas · tiempo ${timeStr}</span>`;
+    banner.style.display = 'block';
+
+    document.getElementById('resumeBtn').addEventListener('click', ()=>{
+      state.rotationEnabled = !!saved.rotationEnabled;
+      rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+      rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
+      state.timeAttackEnabled = !!saved.timeAttackEnabled;
+      timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+      timeAttackToggleEl.setAttribute('aria-pressed', String(state.timeAttackEnabled));
+      state.dailyMode = !!saved.isDaily;
+      state.dailyDate = saved.dailyDate || null;
+      state.sourceLabel = saved.label || '';
+
+      const startResume = ()=>{
+        banner.style.display = 'none';
+        enterPlayMode(saved);
+      };
+
+      if(saved.isBuiltin){
+        setSourceFromDraw(drawEiffelTower, saved.label || 'Torre Eiffel');
+        startResume();
+      } else if(saved.imageDataUrl){
+        const img = new Image();
+        img.onload = ()=>{
+          setSourceFromImageElement(img, saved.label || 'Imagen guardada');
+          startResume();
+        };
+        img.onerror = ()=>{
+          banner.style.display = 'none';
+          clearSavedProgress();
+        };
+        img.src = saved.imageDataUrl;
+      }
+    });
+
+    document.getElementById('discardResumeBtn').addEventListener('click', ()=>{
+      clearSavedProgress();
+      banner.style.display = 'none';
+    });
+  })();
+
+  document.getElementById('shuffleBtn').addEventListener('click', ()=>{
+    if(state.placedCount > 0){
+      const n = state.placedCount;
+      const ok = confirm(`Vas a perder ${n===1 ? 'la pieza que ya colocaste' : `las ${n} piezas que ya colocaste`} — mezclar genera un corte nuevo, no se puede recuperar. ¿Mezclar igual?`);
+      if(!ok) return;
+    }
+    runGeneratePuzzle();
+  });
+
+  document.getElementById('shareResultBtn').addEventListener('click', shareResult);
+
+  document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+    document.getElementById('winOverlay').classList.remove('show');
+    runGeneratePuzzle();
+  });
+
+  document.getElementById('retryTimeAttackBtn').addEventListener('click', ()=>{
+    document.getElementById('timeUpOverlay').classList.remove('show');
+    runGeneratePuzzle();
+  });
+
+  document.getElementById('timeUpChangeBtn').addEventListener('click', ()=>{
+    document.getElementById('timeUpOverlay').classList.remove('show');
+    document.getElementById('board-area').classList.remove('visible');
+    document.getElementById('setupPanel').classList.remove('hide');
+    document.body.classList.remove('playing');
+    setStep(1);
+  });
+
+  // ---------------- Daily challenge ----------------
+  const DAILY_DIFFICULTY = {rows:6, cols:7, label:'Difícil'}; // fixed, same for everyone
+
+  function refreshDailyStats(){
+    const data = loadDailyData();
+    const today = todayStr();
+    const el = document.getElementById('dailyStats');
+    const playedToday = data.best[today] !== undefined;
+    const parts = [];
+    if(data.streak) parts.push(`Racha: <b>${data.streak} día${data.streak===1?'':'s'}</b>`);
+    if(playedToday){
+      const m = String(Math.floor(data.best[today]/60)).padStart(2,'0');
+      const s = String(data.best[today]%60).padStart(2,'0');
+      parts.push(`Ya completaste el de hoy — mejor tiempo: <b>${m}:${s}</b>`);
+    }
+    el.innerHTML = parts.length ? parts.join(' · ') : 'Todavía no jugaste el desafío diario.';
+  }
+  refreshDailyStats();
+
+  // ---------------- Sound toggle button ----------------
+  const soundToggleBtn = document.getElementById('soundToggleBtn');
+  function updateSoundBtn(){
+    soundToggleBtn.textContent = state.soundEnabled ? '🔊' : '🔇';
+    soundToggleBtn.classList.toggle('muted', !state.soundEnabled);
+  }
+  updateSoundBtn();
+  soundToggleBtn.addEventListener('click', ()=>{
+    state.soundEnabled = !state.soundEnabled;
+    try{ localStorage.setItem(SOUND_KEY, state.soundEnabled ? '1' : '0'); }catch(err){}
+    updateSoundBtn();
+    if(state.soundEnabled) playClickSound(); // quick confirmation blip
+  });
+
+  // ---------------- History overlay ----------------
+  document.getElementById('openHistoryBtn').addEventListener('click', ()=>{
+    renderHistory();
+    document.getElementById('importHistoryStatus').textContent = '';
+    document.getElementById('historyOverlay').classList.add('show');
+  });
+  document.getElementById('closeHistoryBtn').addEventListener('click', ()=>{
+    document.getElementById('historyOverlay').classList.remove('show');
+  });
+  document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
+    try{ localStorage.removeItem(HISTORY_KEY); }catch(err){}
+    renderHistory();
+  });
+  document.getElementById('exportHistoryBtn').addEventListener('click', exportHistory);
+  document.getElementById('importHistoryBtn').addEventListener('click', ()=>{
+    document.getElementById('importHistoryFile').click();
+  });
+  document.getElementById('importHistoryFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) importHistoryFromFile(file);
+    e.target.value = ''; // allow re-importing the same filename later
+  });
+
+  // ---------------- Best-times overlay ----------------
+  document.getElementById('openBestTimesBtn').addEventListener('click', ()=>{
+    renderBestTimes();
+    document.getElementById('bestTimesOverlay').classList.add('show');
+  });
+  document.getElementById('closeBestTimesBtn').addEventListener('click', ()=>{
+    document.getElementById('bestTimesOverlay').classList.remove('show');
+  });
+
+  // ---------------- Help overlay ----------------
+  document.getElementById('helpBtn').addEventListener('click', ()=>{
+    document.getElementById('helpOverlay').classList.add('show');
+  });
+  document.getElementById('closeHelpBtn').addEventListener('click', ()=>{
+    document.getElementById('helpOverlay').classList.remove('show');
+  });
+
+  // ---------------- Collection overlay + lightbox ----------------
+  document.getElementById('openCollectionBtn').addEventListener('click', ()=>{
+    renderCollection();
+    document.getElementById('collectionOverlay').classList.add('show');
+  });
+  document.getElementById('closeCollectionBtn').addEventListener('click', ()=>{
+    document.getElementById('collectionOverlay').classList.remove('show');
+  });
+  document.getElementById('closeLightboxBtn').addEventListener('click', ()=>{
+    document.getElementById('collectionLightbox').classList.remove('show');
+  });
+
+  document.getElementById('dailyBtn').addEventListener('click', ()=>{
+    const dateStr = todayStr();
+    state.dailyMode = true;
+    state.dailyDate = dateStr;
+    state.dailyRng = mulberry32(hashStringToSeed('rompecabezas-diario-'+dateStr));
+    state.rotationEnabled = false;
+    rotationToggleEl.classList.remove('active');
+    rotationToggleEl.setAttribute('aria-pressed', 'false');
+    state.timeAttackEnabled = false;
+    timeAttackToggleEl.classList.remove('active');
+    timeAttackToggleEl.setAttribute('aria-pressed', 'false');
+    state.multiplayerMode = null;
+    updateMultiplayerStatus();
+    state.difficulty = DAILY_DIFFICULTY;
+    setSourceFromDraw(drawEiffelTower, 'Torre Eiffel — Desafío diario');
+    enterPlayMode();
+  });
+
+  // ---------------- Local multiplayer ----------------
+  function updateMultiplayerStatus(){
+    const el = document.getElementById('multiplayerStatus');
+    if(state.multiplayerMode === 'turns'){
+      el.textContent = 'Modo por turnos activado — elegí imagen y dificultad, después "Armar piezas".';
+    } else if(state.multiplayerMode === 'race'){
+      el.textContent = 'Modo carrera activado — Jugador 1 arma primero; después le toca a Jugador 2 con el mismo rompecabezas.';
+    } else {
+      el.textContent = '';
+    }
+  }
+
+  document.getElementById('turnsModeBtn').addEventListener('click', ()=>{
+    state.multiplayerMode = 'turns';
+    state.activePlayer = 1;
+    state.player1Pieces = 0;
+    state.player2Pieces = 0;
+    state.dailyMode = false;
+    updateMultiplayerStatus();
+  });
+
+  document.getElementById('raceModeBtn').addEventListener('click', ()=>{
+    state.multiplayerMode = 'race';
+    state.raceStage = 'player1';
+    state.raceSeed = Math.floor(Math.random()*1e9);
+    state.raceTime1 = 0;
+    state.dailyMode = false;
+    updateMultiplayerStatus();
+  });
+
+  function updateTurnUI(){
+    const bar = document.getElementById('turnBar');
+    if(state.multiplayerMode !== 'turns'){
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'block';
+    document.getElementById('turnLabel').textContent =
+      `Turno: Jugador ${state.activePlayer} · J1: ${state.player1Pieces} · J2: ${state.player2Pieces}`;
+  }
+
+  document.getElementById('passTurnBtn').addEventListener('click', ()=>{
+    state.activePlayer = state.activePlayer === 1 ? 2 : 1;
+    updateTurnUI();
+    announce(`Turno de Jugador ${state.activePlayer}.`);
+  });
+
+  let refShown=false;
+  document.getElementById('showRefBtn').addEventListener('click', (e)=>{
+    refShown = !refShown;
+    let refImg = document.getElementById('refPreview');
+    if(refShown){
+      if(!refImg){
+        refImg = document.createElement('img');
+        refImg.id='refPreview';
+        refImg.style.maxWidth='100%';
+        refImg.style.border='1px solid var(--steel-dim)';
+        refImg.style.borderRadius='3px';
+        refImg.style.marginTop='10px';
+        document.getElementById('board-area').insertBefore(refImg, document.getElementById('boardWrap'));
+      }
+      refImg.src = state.sourceImg.toDataURL ? state.sourceImg.toDataURL() : '';
+      refImg.style.display='block';
+      e.target.textContent = 'Ocultar referencia';
+    } else if(refImg){
+      refImg.style.display='none';
+      e.target.textContent = 'Ver referencia';
+    }
+  });
+
+  // register service worker for offline/installable use
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{/* ignore if not hosted */});
+    });
+  }
+
+  // ---------------- Install banner ----------------
+  // Already running as an installed app (standalone window, no browser
+  // chrome)? Then there's nothing to offer — this covers both the
+  // standard "display-mode" check and iOS Safari's older, non-standard
+  // navigator.standalone flag.
+  const alreadyInstalled = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  if(!alreadyInstalled){
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const banner = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    let deferredPrompt = null;
+
+    if(isIOS){
+      // Safari on iOS has no programmatic install prompt at all — the only
+      // path is the person doing it manually via the Share sheet, so the
+      // banner just points them at that instead of offering a button that
+      // couldn't actually do anything.
+      installBtn.style.display = 'none';
+      document.getElementById('iosInstallHint').style.display = 'block';
+      banner.style.display = 'block';
+    } else {
+      // Everywhere else (Chrome/Edge/etc. on Android and desktop), the
+      // browser fires this event once it decides the page is installable.
+      // Capturing it lets our own styled button trigger the same native
+      // prompt on demand, instead of relying on the person noticing the
+      // browser's own (easy-to-miss) install icon.
+      window.addEventListener('beforeinstallprompt', (e)=>{
+        e.preventDefault();
+        deferredPrompt = e;
+        banner.style.display = 'block';
+      });
+
+      installBtn.addEventListener('click', async ()=>{
+        if(!deferredPrompt) return;
+        installBtn.disabled = true;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice; // outcome is 'accepted' or 'dismissed'
+        deferredPrompt = null;
+        banner.style.display = 'none';
+        installBtn.disabled = false;
+      });
+    }
+
+    window.addEventListener('appinstalled', ()=>{
+      banner.style.display = 'none';
+    });
+  }
+
+  // Splash screen: shown instantly on load (no network needed, it's just
+  // markup+CSS), held for 5s so it reads as a proper launch screen, then
+  // faded out.
+  setTimeout(()=>{
+    const splash = document.getElementById('splashScreen');
+    if(splash){
+      splash.classList.add('hide');
+      setTimeout(()=>splash.remove(), 600);
+    }
+    startOnboardingHighlight();
+  }, 5000);
+
+  // ---------------- First-visit onboarding: point out the key buttons ----------------
+  const ONBOARD_KEY = 'rompecabezas:onboarded';
+  function startOnboardingHighlight(){
+    try{
+      if(localStorage.getItem(ONBOARD_KEY)) return; // already seen it
+    }catch(err){ return; }
+
+    const quickBtn = document.getElementById('quickStartBtn');
+    const helpBtnEl = document.getElementById('helpBtn');
+    const tooltip = document.getElementById('onboardTooltip');
+    quickBtn.classList.add('onboard-highlight');
+    helpBtnEl.classList.add('onboard-highlight');
+    tooltip.style.display = 'block';
+
+    let dismissed = false;
+    function dismiss(){
+      if(dismissed) return;
+      dismissed = true;
+      quickBtn.classList.remove('onboard-highlight');
+      helpBtnEl.classList.remove('onboard-highlight');
+      tooltip.style.display = 'none';
+      try{ localStorage.setItem(ONBOARD_KEY, '1'); }catch(err){}
+    }
+
+    // Any real engagement with the app — not just these two buttons —
+    // means the person found their way in, so the highlight has done its
+    // job and shouldn't linger. A timeout covers anyone who scrolls past
+    // without clicking anything at all.
+    quickBtn.addEventListener('click', dismiss, {once:true});
+    helpBtnEl.addEventListener('click', dismiss, {once:true});
+    document.getElementById('generateBtn').addEventListener('click', dismiss, {once:true});
+    setTimeout(dismiss, 9000);
+  }
+
+})();
