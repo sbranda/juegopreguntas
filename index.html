@@ -1184,6 +1184,7 @@
       <svg id="wheel" viewBox="0 0 300 300" width="300" height="300" style="width:100%;height:100%;display:block;"></svg>
     </div>
   </div>
+  <p id="preciseModeHint" style="display:none; font-size:11px; color:var(--accent); text-align:center; margin:6px 0 0; font-weight:700;">🎯 Modo preciso activo — arrastrá la rueda con el dedo y soltá para tirarla</p>
 
   <div id="wheelResultLabel" style="display:none;" aria-live="polite"></div>
 
@@ -1209,6 +1210,7 @@
     <button id="survivalModeBtn">💀 Supervivencia</button>
     <button id="marathonModeBtn">🏃 Modo maratón</button>
     <button id="noWildcardsBtn">🚫 Sin comodines</button>
+    <button id="preciseModeBtn">🎯 Modo preciso</button>
     <button id="bankBtn">🧠 Banco de preguntas</button>
   </div>
 
@@ -6514,6 +6516,23 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   spinBtn.addEventListener('click', spin);
 
+  function revealSpinResult(chosenTopic, animDurationMs){
+    spinning = false;
+    const wheelResultLabel = document.getElementById('wheelResultLabel');
+    wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · ' + (reviewModeEnabled ? '📖 Repaso' : ('Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL));
+    wheelResultLabel.style.borderColor = chosenTopic.color;
+    wheelResultLabel.style.display = 'flex';
+    // reinicia la animación de aparición
+    wheelResultLabel.style.animation = 'none';
+    void wheelResultLabel.offsetWidth;
+    wheelResultLabel.style.animation = '';
+
+    // pausa de 2s mostrando el resultado en la rueda antes de abrir la pregunta
+    setTimeout(()=>{
+      openQuestion(chosenTopic.key);
+    }, 2000);
+  }
+
   function spin(){
     if(spinning) return;
 
@@ -6552,26 +6571,159 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     const delta = fullSpins*360 + ((finalMod - currentMod + 360) % 360);
     currentRotation += delta;
 
+    wheel.style.transitionDuration = '4.5s';
+    wheel.style.transitionTimingFunction = 'cubic-bezier(0.12,0.85,0.15,1)';
     wheel.style.transform = `rotate(${currentRotation}deg)`;
 
     setTimeout(()=>{
-      spinning = false;
-      const chosenTopic = active[chosenIndex];
-
-      wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · ' + (reviewModeEnabled ? '📖 Repaso' : ('Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL));
-      wheelResultLabel.style.borderColor = chosenTopic.color;
-      wheelResultLabel.style.display = 'flex';
-      // reinicia la animación de aparición
-      wheelResultLabel.style.animation = 'none';
-      void wheelResultLabel.offsetWidth;
-      wheelResultLabel.style.animation = '';
-
-      // pausa de 2s mostrando el resultado en la rueda antes de abrir la pregunta
-      setTimeout(()=>{
-        openQuestion(chosenTopic.key);
-      }, 2000);
+      revealSpinResult(active[chosenIndex]);
     }, 4600);
   }
+
+  // -------- Modo preciso: girar la rueda arrastrando el dedo, con física real --------
+  // Opcional (no reemplaza el botón normal, que sigue siendo 100% al azar y accesible).
+  // La velocidad y dirección con la que soltás el gesto determinan, mediante una simulación
+  // de fricción angular, cuánto gira la rueda y dónde se frena — así con práctica se puede
+  // aprender a apuntar. Queda desactivado por defecto para no afectar la aleatoriedad
+  // "justa" que usan el multijugador y los logros de maestría por tema.
+  let preciseModeEnabled = false;
+  let preciseDragging = false;
+  let preciseDragSamples = [];
+  const PRECISE_FRICTION = 220; // grados/seg² — más alto = se frena más rápido
+  const PRECISE_MIN_VELOCITY = 60; // grados/seg mínimos para que cuente como una tirada real
+
+  function preciseAngleFromEvent(e, cx, cy){
+    return Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+  }
+
+  function preciseOnPointerDown(e){
+    if(!preciseModeEnabled || spinning) return;
+    if(reviewModeEnabled && getWheelTopics().length === 0){
+      spin(); // reutiliza el aviso de "no quedan preguntas para repasar" de spin()
+      return;
+    }
+    const rect = document.getElementById('wheelWrap').getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    preciseDragging = true;
+    preciseDragSamples = [{ t: performance.now(), angle: preciseAngleFromEvent(e, cx, cy) }];
+    wheel.style.transitionDuration = '0s';
+    if(e.pointerId !== undefined && wheel.setPointerCapture) wheel.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function preciseOnPointerMove(e){
+    if(!preciseDragging) return;
+    const rect = document.getElementById('wheelWrap').getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    const rawAngle = preciseAngleFromEvent(e, cx, cy);
+    const last = preciseDragSamples[preciseDragSamples.length-1];
+    let delta = rawAngle - (last.angle % 360);
+    if(delta > 180) delta -= 360;
+    if(delta < -180) delta += 360;
+    const unwrapped = last.angle + delta;
+    preciseDragSamples.push({ t: performance.now(), angle: unwrapped });
+    if(preciseDragSamples.length > 10) preciseDragSamples.shift();
+
+    const dragRotation = unwrapped - preciseDragSamples[0].angle;
+    wheel.style.transform = `rotate(${currentRotation + dragRotation}deg)`;
+    e.preventDefault();
+  }
+
+  function preciseOnPointerUp(e){
+    if(!preciseDragging) return;
+    preciseDragging = false;
+    const samples = preciseDragSamples;
+    preciseDragSamples = [];
+    if(samples.length < 2) return;
+
+    const first = samples[0], last = samples[samples.length-1];
+    // deja fijada la rotación tal como quedó al soltar (el drag ya la movió visualmente)
+    currentRotation += (last.angle - first.angle);
+
+    // velocidad de salida: se calcula solo con las últimas muestras (el "golpe final" del gesto)
+    const vSamples = samples.slice(-4);
+    const vFirst = vSamples[0], vLast = vSamples[vSamples.length-1];
+    const dt = (vLast.t - vFirst.t) / 1000;
+    const velocity = dt > 0 ? (vLast.angle - vFirst.angle) / dt : 0; // grados/segundo, con signo
+
+    launchPreciseSpin(velocity);
+  }
+
+  function launchPreciseSpin(velocity){
+    if(spinning) return;
+
+    if(Math.abs(velocity) < PRECISE_MIN_VELOCITY){
+      // gesto muy débil: no cuenta como tirada, la rueda vuelve suavemente a como estaba
+      wheel.style.transitionDuration = '0.3s';
+      wheel.style.transitionTimingFunction = 'ease-out';
+      wheel.style.transform = `rotate(${currentRotation}deg)`;
+      return;
+    }
+
+    spinning = true;
+    spinBtn.disabled = true;
+    document.getElementById('wheelResultLabel').style.display = 'none';
+
+    const direction = velocity >= 0 ? 1 : -1;
+    const speed = Math.abs(velocity);
+    const extraRotation = (speed*speed) / (2*PRECISE_FRICTION); // distancia angular hasta frenar del todo
+    const durationSec = Math.max(0.5, speed / PRECISE_FRICTION);
+
+    currentRotation += direction*extraRotation;
+
+    const active = getWheelTopics();
+    const n = active.length;
+    const seg = 360/n;
+    const rotationMod = ((currentRotation % 360) + 360) % 360;
+    const angleAtTop = ((360 - rotationMod) % 360 + 360) % 360;
+    const chosenIndex = Math.floor(angleAtTop / seg) % n;
+
+    wheel.style.transitionDuration = durationSec + 's';
+    wheel.style.transitionTimingFunction = 'cubic-bezier(0.1,0.7,0.2,1)';
+    wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+    setTimeout(()=>{
+      revealSpinResult(active[chosenIndex]);
+    }, durationSec*1000 + 150);
+  }
+
+  (function setupPreciseModeDrag(){
+    const wheelWrap = document.getElementById('wheelWrap');
+    if(!wheelWrap) return;
+    wheelWrap.addEventListener('pointerdown', preciseOnPointerDown);
+    window.addEventListener('pointermove', preciseOnPointerMove);
+    window.addEventListener('pointerup', preciseOnPointerUp);
+    window.addEventListener('pointercancel', preciseOnPointerUp);
+  })();
+
+  const preciseModeBtn = document.getElementById('preciseModeBtn');
+  function updatePreciseModeBtnLabel(){
+    if(!preciseModeBtn) return;
+    preciseModeBtn.textContent = preciseModeEnabled ? '🎯 Modo preciso: ON' : '🎯 Modo preciso';
+    preciseModeBtn.style.borderColor = preciseModeEnabled ? 'var(--accent)' : 'var(--panel-line)';
+    preciseModeBtn.style.color = preciseModeEnabled ? 'var(--accent)' : 'var(--text-dim)';
+    const wheelWrap = document.getElementById('wheelWrap');
+    if(wheelWrap){
+      wheelWrap.style.touchAction = preciseModeEnabled ? 'none' : 'auto';
+      wheelWrap.style.cursor = preciseModeEnabled ? 'grab' : 'default';
+    }
+    const hint = document.getElementById('preciseModeHint');
+    if(hint) hint.style.display = preciseModeEnabled ? 'block' : 'none';
+  }
+  if(preciseModeBtn){
+    preciseModeBtn.addEventListener('click', async ()=>{
+      preciseModeEnabled = !preciseModeEnabled;
+      updatePreciseModeBtnLabel();
+      await storageSet('precise_mode', preciseModeEnabled ? 'on' : 'off');
+    });
+  }
+  (async function loadPreciseMode(){
+    const saved = await storageGet('precise_mode');
+    if(saved === 'on'){
+      preciseModeEnabled = true;
+      updatePreciseModeBtnLabel();
+    }
+  })();
 
   // ---------------- Question modal ----------------
   const modalOverlay = document.getElementById('modalOverlay');
@@ -7505,6 +7657,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     survivalModeBtn: ()=> typeof survivalModeEnabled!=='undefined' && survivalModeEnabled,
     marathonModeBtn: ()=> typeof marathonModeEnabled!=='undefined' && marathonModeEnabled,
     noWildcardsBtn: ()=> typeof noWildcardsEnabled!=='undefined' && noWildcardsEnabled,
+    preciseModeBtn: ()=> typeof preciseModeEnabled!=='undefined' && preciseModeEnabled,
   };
 
   const MORE_MENU_SECTIONS = [
@@ -7515,6 +7668,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       { id:'survivalModeBtn', icon:'💀', label:'Supervivencia', toggle:true },
       { id:'marathonModeBtn', icon:'🏃', label:'Modo maratón', toggle:true },
       { id:'noWildcardsBtn', icon:'🚫', label:'Sin comodines', toggle:true },
+      { id:'preciseModeBtn', icon:'🎯', label:'Modo preciso (girar con el dedo)', toggle:true },
     ]},
     { title:'👥 Multijugador', items:[
       { id:'multiplayerBtn', icon:'👥', label:'Multijugador y torneo' },
