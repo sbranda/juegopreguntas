@@ -279,11 +279,22 @@
       0 0 0 5px rgba(255,209,102,0.35),
       0 22px 55px rgba(0,0,0,0.55);
     transform-origin: 50% 50%;
-    overflow:hidden;
     will-change: transform;
     backface-visibility:hidden;
-    contain: layout paint;
+    -webkit-backface-visibility:hidden;
   }
+  #wheelCanvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+    border-radius:50%;
+    pointer-events:none;
+  }
+  /* mientras la rueda gira se pausan las animaciones decorativas que repintan la página
+     en cada cuadro (el título con brillo, las lucecitas de arriba, el cartel de racha) */
+  body.wheel-busy h1 span,
+  body.wheel-busy #marqueeTop .bulb,
+  body.wheel-busy #streakBadge{ animation-play-state:paused !important; }
   #wheel{
     width:100%; height:100%;
     display:block;
@@ -7234,8 +7245,55 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       iconText.textContent = t.icon;
       svg.appendChild(iconText);
     });
+    const _a11y = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--a11y-scale')) || 1;
+    paintWheelCanvas(active, n, seg, _a11y, n <= 6 ? 34 : (n <= 8 ? 30 : 26));
   }
   renderWheel();
+
+  // La rueda se dibuja UNA vez como imagen (canvas) y el navegador solo la rota con la GPU.
+  // Rotar un SVG con emojis obliga a algunos navegadores (sobre todo Safari/iOS y celulares
+  // modestos) a re-dibujarlo en cada cuadro, y eso producía los tirones.
+  function paintWheelCanvas(active, n, seg, a11yScale, baseSize){
+    const holder = document.getElementById('wheelSpinner');
+    let cv = document.getElementById('wheelCanvas');
+    if(!cv){
+      cv = document.createElement('canvas');
+      cv.id = 'wheelCanvas';
+      holder.insertBefore(cv, holder.firstChild);
+    }
+    const cssW = (holder.clientWidth - 12) || 328;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const px = Math.max(300, Math.min(1400, Math.round(cssW * dpr)));
+    if(cv.width !== px || cv.height !== px){ cv.width = px; cv.height = px; }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,px,px);
+    ctx.setTransform(px/300,0,0,px/300,0,0);
+    ctx.lineJoin = 'round';
+    active.forEach((t, i)=>{
+      const a0 = (i*seg - 90) * Math.PI/180;
+      const a1 = ((i+1)*seg - 90) * Math.PI/180;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.arc(CX, CY, R - 1, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = resolveColor(t.color);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#12121a';
+      ctx.stroke();
+      const mid = i*seg + seg/2;
+      const pos = polarToXY(CX, CY, R*0.68, mid);
+      ctx.font = Math.round(baseSize * a11yScale) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.fillText(t.icon, pos.x, pos.y);
+    });
+    svg.style.display = 'none'; // el SVG queda solo como respaldo; lo que gira es la imagen
+  }
+  let wheelResizeTimer = null;
+  window.addEventListener('resize', ()=>{ clearTimeout(wheelResizeTimer); wheelResizeTimer = setTimeout(renderWheel, 200); });
 
   // ---------------- Anillo de luces (bombillas) alrededor de la rueda ----------------
   (function buildBulbRing(){
@@ -7594,6 +7652,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   function revealSpinResult(chosenTopic, animDurationMs){
     spinning = false;
+    document.body.classList.remove('wheel-busy');
     const wheelResultLabel = document.getElementById('wheelResultLabel');
     wheelResultLabel.innerHTML = '🎯 Salió: <span style="color:' + chosenTopic.color + ';">' + chosenTopic.icon + ' ' + chosenTopic.name + '</span> · ' + (reviewModeEnabled ? '📖 Repaso' : ('Nivel ' + state[chosenTopic.key] + '/' + MAX_LEVEL));
     wheelResultLabel.style.borderColor = chosenTopic.color;
@@ -7625,6 +7684,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
 
     spinning = true;
+    document.body.classList.add('wheel-busy');
     spinBtn.disabled = true;
     wheelResultLabel.style.display = 'none';
 
@@ -7681,6 +7741,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       return;
     }
     stopWheelAnim();
+    document.body.classList.add('wheel-busy');
     const rect = document.getElementById('wheelWrap').getBoundingClientRect();
     preciseCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
     preciseDragging = true;
@@ -7718,7 +7779,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     preciseDragging = false;
     const samples = preciseDragSamples;
     preciseDragSamples = [];
-    if(samples.length < 2){ normalizeWheelRotation(); return; }
+    if(samples.length < 2){ document.body.classList.remove('wheel-busy'); normalizeWheelRotation(); return; }
 
     // velocidad de salida: solo las muestras de los últimos ~100 ms del gesto
     const last = samples[samples.length-1];
@@ -7740,11 +7801,13 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
     if(Math.abs(velocity) < PRECISE_MIN_VELOCITY){
       // gesto muy débil: no cuenta como tirada; la rueda queda donde la soltaste
+      document.body.classList.remove('wheel-busy');
       normalizeWheelRotation();
       return;
     }
 
     spinning = true;
+    document.body.classList.add('wheel-busy');
     spinBtn.disabled = true;
     document.getElementById('wheelResultLabel').style.display = 'none';
 
