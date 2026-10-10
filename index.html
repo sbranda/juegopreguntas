@@ -310,7 +310,14 @@
     display:flex; align-items:center; justify-content:center;
     font-size:22px;
     box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform 0.12s ease-out;
+    user-select:none; -webkit-user-select:none;
   }
+  #wheelCenter:active{ transform:scale(0.92); }
+  #wheelCenter:focus-visible{ outline:3px solid var(--accent); outline-offset:3px; }
+  body.wheel-busy #wheelCenter{ cursor:default; }
   .seg-label{
     position:absolute;
     left:50%; top:50%;
@@ -1194,7 +1201,7 @@
   <div id="wheelWrap">
     <div id="bulbRing"></div>
     <div id="pointer"></div>
-    <div id="wheelCenter">🎯</div>
+    <div id="wheelCenter" role="button" tabindex="0" aria-label="Girar la rueda">🎯</div>
     <div id="wheelSpinner">
       <svg id="wheel" viewBox="0 0 300 300" width="300" height="300" style="width:100%;height:100%;display:block;"></svg>
     </div>
@@ -7649,6 +7656,18 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   const easeOutQuart = p => 1 - Math.pow(1 - p, 4);
 
   spinBtn.addEventListener('click', spin);
+  // el centro de la rueda también sirve para girar (mismas reglas que el botón)
+  const wheelCenterBtn = document.getElementById('wheelCenter');
+  function spinFromCenter(){
+    if(spinning || spinBtn.disabled || preciseDragging) return;
+    spin();
+  }
+  if(wheelCenterBtn){
+    wheelCenterBtn.addEventListener('click', spinFromCenter);
+    wheelCenterBtn.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); spinFromCenter(); }
+    });
+  }
 
   function revealSpinResult(chosenTopic, animDurationMs){
     spinning = false;
@@ -7724,6 +7743,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   let preciseCenter = { x:0, y:0 };
   let preciseStartPointerAngle = 0;
   let preciseStartRotation = 0;
+  let preciseDownOnCenter = false;
   let preciseLastUnwrapped = 0;
   const PRECISE_FRICTION = 220;       // grados/seg² — más alto = se frena más rápido
   const PRECISE_MIN_VELOCITY = 60;    // grados/seg mínimos para que cuente como una tirada real
@@ -7744,6 +7764,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     document.body.classList.add('wheel-busy');
     const rect = document.getElementById('wheelWrap').getBoundingClientRect();
     preciseCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+    preciseDownOnCenter = !!(e.target && e.target.closest && e.target.closest('#wheelCenter'));
     preciseDragging = true;
     preciseStartPointerAngle = preciseAngleFromEvent(e);
     preciseLastUnwrapped = preciseStartPointerAngle;
@@ -7779,6 +7800,16 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     preciseDragging = false;
     const samples = preciseDragSamples;
     preciseDragSamples = [];
+    // un toque corto sobre el centro (sin arrastrar) gira la rueda, igual que en modo normal
+    const moved = samples.length ? Math.abs(samples[samples.length-1].angle - samples[0].angle) : 0;
+    if(preciseDownOnCenter && moved < 5){
+      preciseDownOnCenter = false;
+      document.body.classList.remove('wheel-busy');
+      normalizeWheelRotation();
+      spinFromCenter();
+      return;
+    }
+    preciseDownOnCenter = false;
     if(samples.length < 2){ document.body.classList.remove('wheel-busy'); normalizeWheelRotation(); return; }
 
     // velocidad de salida: solo las muestras de los últimos ~100 ms del gesto
