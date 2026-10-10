@@ -7607,7 +7607,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
 
   function setWheelRotation(a){
     currentRotation = a;
-    wheel.style.transform = 'rotate(' + a.toFixed(3) + 'deg)';
+    wheel.style.transform = 'translate3d(0,0,0) rotate(' + a.toFixed(3) + 'deg)';
   }
   function normalizeWheelRotation(){
     setWheelRotation(((currentRotation % 360) + 360) % 360);
@@ -7621,9 +7621,12 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     return Math.min(n-1, Math.floor(top / seg));
   }
   // la flecha "da un golpecito" cada vez que pasa una división, como en una rueda real
+  let lastTickTime = 0;
   function checkPointerTick(){
     const idx = indexUnderPointer();
-    if(lastTickIndex !== null && idx !== lastTickIndex && pointerEl && pointerEl.animate && !reducedMotionWheel){
+    const nowT = performance.now();
+    if(lastTickIndex !== null && idx !== lastTickIndex && pointerEl && pointerEl.animate && !reducedMotionWheel && nowT - lastTickTime > 70){
+      lastTickTime = nowT;
       pointerEl.animate(
         [ {transform:'translateX(-50%) rotate(0deg)'},
           {transform:'translateX(-50%) rotate(-18deg)', offset:0.3},
@@ -7653,7 +7656,28 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     }
     wheelAnimId = requestAnimationFrame(frame);
   }
-  const easeOutQuart = p => 1 - Math.pow(1 - p, 4);
+  // Curva de giro natural: la rueda arranca con un impulso corto (no a máxima velocidad de golpe)
+  // y luego se va frenando de forma continua y muy suave, como una rueda real con rozamiento.
+  // Se integra una vez una curva de velocidad y se la normaliza a 0..1.
+  const WHEEL_EASE_N = 800;
+  const WHEEL_EASE_TABLE = (function(){
+    const t = new Float64Array(WHEEL_EASE_N + 1);
+    let acc = 0, prevV = 0;
+    for(let i = 1; i <= WHEEL_EASE_N; i++){
+      const x = i / WHEEL_EASE_N;
+      const ramp = Math.min(1, x / 0.045);
+      const v = (ramp * ramp * (3 - 2 * ramp)) * Math.pow(1 - x, 2.6);
+      acc += (v + prevV) / 2; prevV = v; t[i] = acc;
+    }
+    for(let i = 0; i <= WHEEL_EASE_N; i++) t[i] /= acc;
+    return t;
+  })();
+  function easeOutQuart(p){ // (mantiene el nombre; ahora usa la curva natural)
+    if(p <= 0) return 0;
+    if(p >= 1) return 1;
+    const f = p * WHEEL_EASE_N, i = Math.floor(f), r = f - i;
+    return WHEEL_EASE_TABLE[i] + (WHEEL_EASE_TABLE[i+1] - WHEEL_EASE_TABLE[i]) * r;
+  }
 
   spinBtn.addEventListener('click', spin);
   // el centro de la rueda también sirve para girar (mismas reglas que el botón)
@@ -7745,7 +7769,8 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   let preciseStartRotation = 0;
   let preciseDownOnCenter = false;
   let preciseLastUnwrapped = 0;
-  const PRECISE_FRICTION = 220;       // grados/seg² — más alto = se frena más rápido
+  const PRECISE_FRICTION = 30;        // grados/seg² — rozamiento seco constante (el que la detiene al final)
+  const PRECISE_DRAG = 0.6;           // 1/seg — rozamiento viscoso (frena más fuerte cuanto más rápido gira)
   const PRECISE_MIN_VELOCITY = 60;    // grados/seg mínimos para que cuente como una tirada real
   const PRECISE_MAX_VELOCITY = 1600;  // tope para que una tirada enorme no dure una eternidad
   const PRECISE_SAMPLE_WINDOW = 100;  // ms: ventana para medir la velocidad de salida
@@ -7852,7 +7877,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       if(prev === null){ prev = now; wheelAnimId = requestAnimationFrame(frame); return; }
       const dt = Math.min(0.05, (now - prev) / 1000);   // tope por si la pestaña se congela
       prev = now;
-      const newSpeed = Math.max(0, speed - PRECISE_FRICTION * dt);
+      const newSpeed = Math.max(0, speed * Math.exp(-PRECISE_DRAG * dt) - PRECISE_FRICTION * dt);
       const advance = (speed + newSpeed) / 2 * dt;       // integración trapezoidal
       speed = newSpeed;
       setWheelRotation(currentRotation + dir * advance);
