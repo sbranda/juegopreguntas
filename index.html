@@ -278,9 +278,11 @@
       0 0 0 3px #2a2038,
       0 0 0 5px rgba(255,209,102,0.35),
       0 22px 55px rgba(0,0,0,0.55);
-    transition: transform 4.5s cubic-bezier(0.12,0.85,0.15,1);
     transform-origin: 50% 50%;
     overflow:hidden;
+    will-change: transform;
+    backface-visibility:hidden;
+    contain: layout paint;
   }
   #wheel{
     width:100%; height:100%;
@@ -7531,7 +7533,62 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   // ---------------- Spin logic ----------------
   const wheel = document.getElementById('wheelSpinner'); // el div que realmente gira (el SVG queda fijo adentro)
   const spinBtn = document.getElementById('spinBtn');
-  let currentRotation = 0;
+  let currentRotation = 0; // grados acumulados (se normaliza a 0-360 al terminar cada giro)
+  let wheelAnimId = null;
+  let lastTickIndex = null;
+  const pointerEl = document.getElementById('pointer');
+  if(pointerEl) pointerEl.style.transformOrigin = '50% 15%';
+  const reducedMotionWheel = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function setWheelRotation(a){
+    currentRotation = a;
+    wheel.style.transform = 'rotate(' + a.toFixed(3) + 'deg)';
+  }
+  function normalizeWheelRotation(){
+    setWheelRotation(((currentRotation % 360) + 360) % 360);
+  }
+  // índice de la porción que está justo bajo la flecha (arriba)
+  function indexUnderPointer(){
+    const n = getWheelTopics().length;
+    const seg = 360 / n;
+    const mod = ((currentRotation % 360) + 360) % 360;
+    const top = (360 - mod) % 360;
+    return Math.min(n-1, Math.floor(top / seg));
+  }
+  // la flecha "da un golpecito" cada vez que pasa una división, como en una rueda real
+  function checkPointerTick(){
+    const idx = indexUnderPointer();
+    if(lastTickIndex !== null && idx !== lastTickIndex && pointerEl && pointerEl.animate && !reducedMotionWheel){
+      pointerEl.animate(
+        [ {transform:'translateX(-50%) rotate(0deg)'},
+          {transform:'translateX(-50%) rotate(-18deg)', offset:0.3},
+          {transform:'translateX(-50%) rotate(0deg)'} ],
+        { duration:100, easing:'ease-out' }
+      );
+    }
+    lastTickIndex = idx;
+  }
+  function stopWheelAnim(){
+    if(wheelAnimId !== null){ cancelAnimationFrame(wheelAnimId); wheelAnimId = null; }
+  }
+  // Animación con requestAnimationFrame: sigue el reloj real (no se desfasa del resultado),
+  // termina exactamente en el ángulo calculado y avisa recién cuando la rueda se detuvo.
+  function animateWheelTo(to, durationMs, easeFn, onDone){
+    stopWheelAnim();
+    const from = currentRotation;
+    let t0 = null;
+    lastTickIndex = indexUnderPointer();
+    function frame(now){
+      if(t0 === null) t0 = now;
+      const p = Math.min(1, (now - t0) / durationMs);
+      setWheelRotation(from + (to - from) * easeFn(p));
+      checkPointerTick();
+      if(p < 1){ wheelAnimId = requestAnimationFrame(frame); }
+      else { wheelAnimId = null; setWheelRotation(to); normalizeWheelRotation(); onDone(); }
+    }
+    wheelAnimId = requestAnimationFrame(frame);
+  }
+  const easeOutQuart = p => 1 - Math.pow(1 - p, 4);
 
   spinBtn.addEventListener('click', spin);
 
@@ -7578,7 +7635,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     const chosenIndex = Math.floor(Math.random()*n);
     // pointer is at top (angle 0 relative to segment start-based CX,CY at -90deg convention already baked in)
     // we want the chosen segment's middle to end at angle 0 (top) after rotation
-    const segMid = chosenIndex*seg + seg/2;
+    const segMid = chosenIndex*seg + seg/2 + (Math.random()-0.5)*seg*0.5; // ±25 % del centro: nunca cerca de un borde
     const fullSpins = 5 + Math.floor(Math.random()*3); // 5-7 vueltas
 
     // La rotación es acumulativa (currentRotation ya trae lo girado en vueltas anteriores),
@@ -7588,15 +7645,11 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     const currentMod = ((currentRotation % 360) + 360) % 360;
     const finalMod = ((360 - segMid) % 360 + 360) % 360;
     const delta = fullSpins*360 + ((finalMod - currentMod + 360) % 360);
-    currentRotation += delta;
+    const targetRotation = currentRotation + delta;
 
-    wheel.style.transitionDuration = '4.5s';
-    wheel.style.transitionTimingFunction = 'cubic-bezier(0.12,0.85,0.15,1)';
-    wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-    setTimeout(()=>{
+    animateWheelTo(targetRotation, reducedMotionWheel ? 1200 : 5000, easeOutQuart, ()=>{
       revealSpinResult(active[chosenIndex]);
-    }, 4600);
+    });
   }
 
   // -------- Modo preciso: girar la rueda arrastrando el dedo, con física real --------
@@ -7608,11 +7661,17 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
   let preciseModeEnabled = false;
   let preciseDragging = false;
   let preciseDragSamples = [];
-  const PRECISE_FRICTION = 220; // grados/seg² — más alto = se frena más rápido
-  const PRECISE_MIN_VELOCITY = 60; // grados/seg mínimos para que cuente como una tirada real
+  let preciseCenter = { x:0, y:0 };
+  let preciseStartPointerAngle = 0;
+  let preciseStartRotation = 0;
+  let preciseLastUnwrapped = 0;
+  const PRECISE_FRICTION = 220;       // grados/seg² — más alto = se frena más rápido
+  const PRECISE_MIN_VELOCITY = 60;    // grados/seg mínimos para que cuente como una tirada real
+  const PRECISE_MAX_VELOCITY = 1600;  // tope para que una tirada enorme no dure una eternidad
+  const PRECISE_SAMPLE_WINDOW = 100;  // ms: ventana para medir la velocidad de salida
 
-  function preciseAngleFromEvent(e, cx, cy){
-    return Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+  function preciseAngleFromEvent(e){
+    return Math.atan2(e.clientY - preciseCenter.y, e.clientX - preciseCenter.x) * 180 / Math.PI;
   }
 
   function preciseOnPointerDown(e){
@@ -7621,30 +7680,36 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
       spin(); // reutiliza el aviso de "no quedan preguntas para repasar" de spin()
       return;
     }
+    stopWheelAnim();
     const rect = document.getElementById('wheelWrap').getBoundingClientRect();
-    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    preciseCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
     preciseDragging = true;
-    preciseDragSamples = [{ t: performance.now(), angle: preciseAngleFromEvent(e, cx, cy) }];
-    wheel.style.transitionDuration = '0s';
-    if(e.pointerId !== undefined && wheel.setPointerCapture) wheel.setPointerCapture(e.pointerId);
+    preciseStartPointerAngle = preciseAngleFromEvent(e);
+    preciseLastUnwrapped = preciseStartPointerAngle;
+    preciseStartRotation = currentRotation;
+    preciseDragSamples = [{ t: e.timeStamp || performance.now(), angle: preciseStartPointerAngle }];
+    lastTickIndex = indexUnderPointer();
+    if(e.pointerId !== undefined && wheel.setPointerCapture){ try{ wheel.setPointerCapture(e.pointerId); }catch(_){} }
     e.preventDefault();
   }
 
   function preciseOnPointerMove(e){
     if(!preciseDragging) return;
-    const rect = document.getElementById('wheelWrap').getBoundingClientRect();
-    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
-    const rawAngle = preciseAngleFromEvent(e, cx, cy);
-    const last = preciseDragSamples[preciseDragSamples.length-1];
-    let delta = rawAngle - (last.angle % 360);
-    if(delta > 180) delta -= 360;
-    if(delta < -180) delta += 360;
-    const unwrapped = last.angle + delta;
-    preciseDragSamples.push({ t: performance.now(), angle: unwrapped });
-    if(preciseDragSamples.length > 10) preciseDragSamples.shift();
-
-    const dragRotation = unwrapped - preciseDragSamples[0].angle;
-    wheel.style.transform = `rotate(${currentRotation + dragRotation}deg)`;
+    // usa todos los puntos intermedios del gesto (más suave y más preciso en pantallas de alta frecuencia)
+    const evs = (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+    for(const ev of evs){
+      const raw = preciseAngleFromEvent(ev);
+      let d = raw - (preciseLastUnwrapped % 360);
+      if(d > 180) d -= 360;
+      if(d < -180) d += 360;
+      preciseLastUnwrapped += d;
+      preciseDragSamples.push({ t: ev.timeStamp || performance.now(), angle: preciseLastUnwrapped });
+    }
+    const cutoff = preciseDragSamples[preciseDragSamples.length-1].t - 250;
+    while(preciseDragSamples.length > 2 && preciseDragSamples[0].t < cutoff) preciseDragSamples.shift();
+    // la rueda sigue al dedo 1:1 desde el punto exacto donde lo apoyaste
+    setWheelRotation(preciseStartRotation + (preciseLastUnwrapped - preciseStartPointerAngle));
+    checkPointerTick();
     e.preventDefault();
   }
 
@@ -7653,29 +7718,29 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     preciseDragging = false;
     const samples = preciseDragSamples;
     preciseDragSamples = [];
-    if(samples.length < 2) return;
+    if(samples.length < 2){ normalizeWheelRotation(); return; }
 
-    const first = samples[0], last = samples[samples.length-1];
-    // deja fijada la rotación tal como quedó al soltar (el drag ya la movió visualmente)
-    currentRotation += (last.angle - first.angle);
-
-    // velocidad de salida: se calcula solo con las últimas muestras (el "golpe final" del gesto)
-    const vSamples = samples.slice(-4);
-    const vFirst = vSamples[0], vLast = vSamples[vSamples.length-1];
-    const dt = (vLast.t - vFirst.t) / 1000;
-    const velocity = dt > 0 ? (vLast.angle - vFirst.angle) / dt : 0; // grados/segundo, con signo
-
+    // velocidad de salida: solo las muestras de los últimos ~100 ms del gesto
+    const last = samples[samples.length-1];
+    const nowT = e.timeStamp || performance.now();
+    let velocity = 0;
+    if(nowT - last.t <= PRECISE_SAMPLE_WINDOW){   // si frenaste el dedo antes de soltar, no hay tirada
+      let first = samples[0];
+      for(const sm of samples){ if(last.t - sm.t <= PRECISE_SAMPLE_WINDOW){ first = sm; break; } }
+      const dt = (last.t - first.t) / 1000;
+      velocity = dt > 0 ? (last.angle - first.angle) / dt : 0;
+    }
     launchPreciseSpin(velocity);
   }
 
+  // Frenado con fricción angular constante, simulado cuadro a cuadro. El resultado se lee del
+  // ángulo real donde la rueda se detiene, así que lo que ves es exactamente lo que sale.
   function launchPreciseSpin(velocity){
     if(spinning) return;
 
     if(Math.abs(velocity) < PRECISE_MIN_VELOCITY){
-      // gesto muy débil: no cuenta como tirada, la rueda vuelve suavemente a como estaba
-      wheel.style.transitionDuration = '0.3s';
-      wheel.style.transitionTimingFunction = 'ease-out';
-      wheel.style.transform = `rotate(${currentRotation}deg)`;
+      // gesto muy débil: no cuenta como tirada; la rueda queda donde la soltaste
+      normalizeWheelRotation();
       return;
     }
 
@@ -7683,27 +7748,28 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, sin backtic
     spinBtn.disabled = true;
     document.getElementById('wheelResultLabel').style.display = 'none';
 
-    const direction = velocity >= 0 ? 1 : -1;
-    const speed = Math.abs(velocity);
-    const extraRotation = (speed*speed) / (2*PRECISE_FRICTION); // distancia angular hasta frenar del todo
-    const durationSec = Math.max(0.5, speed / PRECISE_FRICTION);
+    const dir = velocity >= 0 ? 1 : -1;
+    let speed = Math.min(PRECISE_MAX_VELOCITY, Math.abs(velocity));
+    let prev = null;
+    stopWheelAnim();
+    lastTickIndex = indexUnderPointer();
 
-    currentRotation += direction*extraRotation;
-
-    const active = getWheelTopics();
-    const n = active.length;
-    const seg = 360/n;
-    const rotationMod = ((currentRotation % 360) + 360) % 360;
-    const angleAtTop = ((360 - rotationMod) % 360 + 360) % 360;
-    const chosenIndex = Math.floor(angleAtTop / seg) % n;
-
-    wheel.style.transitionDuration = durationSec + 's';
-    wheel.style.transitionTimingFunction = 'cubic-bezier(0.1,0.7,0.2,1)';
-    wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-    setTimeout(()=>{
-      revealSpinResult(active[chosenIndex]);
-    }, durationSec*1000 + 150);
+    function frame(now){
+      if(prev === null){ prev = now; wheelAnimId = requestAnimationFrame(frame); return; }
+      const dt = Math.min(0.05, (now - prev) / 1000);   // tope por si la pestaña se congela
+      prev = now;
+      const newSpeed = Math.max(0, speed - PRECISE_FRICTION * dt);
+      const advance = (speed + newSpeed) / 2 * dt;       // integración trapezoidal
+      speed = newSpeed;
+      setWheelRotation(currentRotation + dir * advance);
+      checkPointerTick();
+      if(speed > 0){ wheelAnimId = requestAnimationFrame(frame); return; }
+      wheelAnimId = null;
+      normalizeWheelRotation();
+      const active = getWheelTopics();
+      revealSpinResult(active[indexUnderPointer()]);
+    }
+    wheelAnimId = requestAnimationFrame(frame);
   }
 
   (function setupPreciseModeDrag(){
